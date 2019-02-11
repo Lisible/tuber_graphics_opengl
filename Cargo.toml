@@ -11,8 +11,3 @@ gl = "0.6.0"
 tuber = { git = "https://github.com/Lisible/tuber" }
 tuber_window_sdl2 = { git = "https://github.com/Lisible/tuber_window_sdl2" }
 
-[[example]]
-name = "draw_point"
-path = "examples/draw_point.rs"
-
-
