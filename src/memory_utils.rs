@@ -1,7 +1,7 @@
 /*
 * MIT License
 *
-* Copyright (c) 2018 Clément SIBILLE
+* Copyright (c) 2018-2019 Clément SIBILLE
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -22,8 +22,10 @@
 * SOFTWARE.
 */
 
-
-pub mod shader;
-pub mod memory_utils;
-
-
+/// The offset of a struct member in bytes
+#[macro_export]
+macro_rules! offset_of {
+    ($type:ty, $identifier:ident) => {
+        &(*(0 as *const $type)).$identifier as *const _ as usize
+    }
+}
