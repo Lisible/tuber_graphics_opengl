@@ -26,6 +26,6 @@
 #[macro_export]
 macro_rules! offset_of {
     ($type:ty, $identifier:ident) => {
-        &(*(0 as *const $type)).$identifier as *const _ as usize
+        unsafe { &(*(0 as *const $type)).$identifier as *const _ as usize }
     }
 }

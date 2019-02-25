@@ -7,8 +7,7 @@
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
+* copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 *
 * The above copyright notice and this permission notice shall be included in all
 * copies or substantial portions of the Software.
@@ -32,6 +31,7 @@ use tuber_window_sdl2::SDLWindow;
 use tuber::input::keyboard::Key;
 
 use tuber_graphics_opengl::shader::{Shader, ShaderProgram};
+use tuber_graphics_opengl::opengl;
 use tuber_graphics_opengl::offset_of;
 
 struct Vertex {
@@ -71,44 +71,35 @@ fn main() -> Result<(), String> {
         Vertex { position: (0.0, -0.5, 0.0), color: (0.0, 0.0, 1.0) }
     ];
 
-    let mut vbo: gl::types::GLuint = 0;
-    unsafe { gl::GenBuffers(1, &mut vbo); }
-
-    unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<Vertex>()) as gl::types::GLsizeiptr,
-            vertices.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW);
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-    }
+    let mut vbo = opengl::VBO::new();
+    vbo.bind(gl::ARRAY_BUFFER);
+    vbo.fill((vertices.len() * std::mem::size_of::<Vertex>()) as gl::types::GLsizeiptr,
+             vertices.as_ptr() as *const gl::types::GLvoid,
+             gl::STATIC_DRAW);
+    vbo.unbind();
+   
     
-    let mut vao: gl::types::GLuint = 0;
-    unsafe { gl::GenVertexArrays(1, &mut vao); }
-
-    unsafe {
-        gl::BindVertexArray(vao);
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::EnableVertexAttribArray(0);
-        gl::VertexAttribPointer(
-            0,
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            std::mem::size_of::<Vertex>() as gl::types::GLint,
-            std::ptr::null());
-        gl::EnableVertexAttribArray(1);
-        gl::VertexAttribPointer(
-            1,
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            std::mem::size_of::<Vertex>() as gl::types::GLint,
-            offset_of!(Vertex, color) as *const gl::types::GLvoid);
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl::BindVertexArray(0);
-    }
+    let mut vao = opengl::VAO::new();
+    vao.bind();
+    vbo.bind(gl::ARRAY_BUFFER);
+    vao.enable_vertex_attrib_array(0);
+    vao.vertex_attrib_pointer(
+        0,
+        3,
+        gl::FLOAT,
+        gl::FALSE,
+        std::mem::size_of::<Vertex>() as gl::types::GLint,
+        std::ptr::null());
+    vao.enable_vertex_attrib_array(1);
+    vao.vertex_attrib_pointer(
+        1,
+        3,
+        gl::FLOAT,
+        gl::FALSE,
+        std::mem::size_of::<Vertex>() as gl::types::GLint,
+        offset_of!(Vertex, color) as *const gl::types::GLvoid);
+    vbo.unbind(); 
+    vao.unbind();
 
     shader_program.use_program();
 
@@ -128,7 +119,7 @@ fn main() -> Result<(), String> {
         
         unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
         unsafe {
-            gl::BindVertexArray(vao);
+            vao.bind();
             gl::DrawArrays(
                 gl::TRIANGLES,
                 0,
