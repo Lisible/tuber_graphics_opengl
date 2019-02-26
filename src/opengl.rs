@@ -212,6 +212,12 @@ impl Texture {
     }
 }
 
+impl Drop for Texture {
+    fn drop(&mut self) {
+        unsafe { gl::DeleteTextures(1, &self.id); }
+    }
+}
+
 pub enum TextureParameterValue {
     Int(gl::types::GLint),
     Float(gl::types::GLfloat),
