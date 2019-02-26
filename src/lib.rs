@@ -22,6 +22,8 @@
  * SOFTWARE.
  */
 
+extern crate nalgebra_glm as glm;
+
 pub mod opengl;
 pub mod shader;
 pub mod memory_utils;

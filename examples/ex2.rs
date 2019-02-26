@@ -49,10 +49,10 @@ fn main() -> Result<(), String> {
      
     
     let vertex_shader = Shader::from_source(&CString::new(
-            include_str!("shaders/triangle.vert")).unwrap(),
+            include_str!("shaders/ex2.vert")).unwrap(),
             gl::VERTEX_SHADER).unwrap();
     let fragment_shader = Shader::from_source(&CString::new(
-            include_str!("shaders/triangle.frag")).unwrap(),
+            include_str!("shaders/ex2.frag")).unwrap(),
             gl::FRAGMENT_SHADER).unwrap();
 
     let shader_program = ShaderProgram::from_shaders(

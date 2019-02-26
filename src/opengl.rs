@@ -148,6 +148,11 @@ impl Texture {
         }
     }
 
+    /// Returns the id of the texture
+    pub fn id(&self) -> gl::types::GLuint {
+        self.id
+    }
+
     /// Binds the texture to the given target
     pub fn bind(&mut self, target: gl::types::GLenum) {
         self.target = Some(target);

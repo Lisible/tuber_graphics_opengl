@@ -32,6 +32,11 @@ pub struct ShaderProgram {
 }
 
 impl ShaderProgram {
+    /// Returns the id of the texture
+    pub fn id(&self) -> gl::types::GLuint {
+        self.id
+    }
+
     pub fn use_program(&self) {
         unsafe { gl::UseProgram(self.id); }
     }
