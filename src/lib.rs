@@ -26,9 +26,10 @@ pub mod opengl;
 pub mod shader;
 pub mod memory_utils;
 
-struct Vertex {
-    position: (f32, f32, f32),
-    color: (f32, f32, f32)
+pub struct Vertex {
+    pub position: (f32, f32, f32),
+    pub color: (f32, f32, f32),
+    pub texture_coordinates: (f32, f32)
 }
 
 struct Renderer {
@@ -46,8 +47,8 @@ impl Renderer {
 
 struct RenderBatch {
     rendering_mode: gl::types::GLenum,
-    vao: opengl::VAO,
-    vbo: opengl::VBO,
+    vao: opengl::VertexArrayObject,
+    vbo: opengl::BufferObject,
     vertices: Vec<Vertex>
 }
 
@@ -55,8 +56,8 @@ impl RenderBatch {
     pub fn new() -> RenderBatch {
         RenderBatch {
             rendering_mode: gl::TRIANGLES,
-            vao: opengl::VAO::new(),
-            vbo: opengl::VBO::new(),
+            vao: opengl::VertexArrayObject::new(),
+            vbo: opengl::BufferObject::new(),
             vertices: vec!()
         }
     }
