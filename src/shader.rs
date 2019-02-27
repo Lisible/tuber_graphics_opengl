@@ -26,9 +26,11 @@
 // Rust OpenGL lessons, https://github.com/Nercury
 
 use std::ffi::{CString, CStr};
+use std::collections::HashMap;
 
 pub struct ShaderProgram {
     id: gl::types::GLuint,
+    uniform_locations: HashMap<String, gl::types::GLint>
 }
 
 impl ShaderProgram {
@@ -74,7 +76,112 @@ impl ShaderProgram {
             unsafe { gl::DetachShader(id, shader.id()); }
         }
 
-        Ok(ShaderProgram { id })
+        Ok(ShaderProgram { 
+            id,
+            uniform_locations: HashMap::new()
+        })
+    }
+
+    /// Returns the uniform location for the uniform
+    /// with the given name
+    pub fn get_uniform_location(&self, name: &str) -> Option<gl::types::GLint> {
+        let location = unsafe {
+            gl::GetUniformLocation(self.id(), 
+                                   CString::new(name)
+                                   .unwrap()
+                                   .as_ptr())
+        };
+
+        if location == -1 {
+            return None;
+        }
+
+        Some(location)
+    }
+
+    fn cache_uniform_location(&mut self, name: &str) {
+        let location = self.get_uniform_location(name);
+        if let Some(loc) = location {
+            self.uniform_locations.insert(String::from(name), loc);
+        }
+    }
+
+    pub fn set_uniform_value(&mut self, 
+                             name: &str, 
+                             value: UniformValue) {
+        
+        if !self.uniform_locations.contains_key(name) {
+            self.cache_uniform_location(name); 
+        }
+
+        if let Some(&location) = self.uniform_locations.get(name) {
+            unsafe {
+                match value {
+                    UniformValue::Float(v1) =>
+                        gl::Uniform1f(location, v1),
+                    UniformValue::Float2(v1, v2) =>
+                        gl::Uniform2f(location, v1, v2),
+                    UniformValue::Float3(v1, v2, v3) =>
+                        gl::Uniform3f(location, v1, v2, v3),
+                    UniformValue::Float4(v1, v2, v3, v4) =>
+                        gl::Uniform4f(location, v1, v2, v3, v4),
+
+                    UniformValue::Int(v1) =>
+                        gl::Uniform1i(location, v1),
+                    UniformValue::Int2(v1, v2) =>
+                        gl::Uniform2i(location, v1, v2),
+                    UniformValue::Int3(v1, v2, v3) =>
+                        gl::Uniform3i(location, v1, v2, v3),
+                    UniformValue::Int4(v1, v2, v3, v4) =>
+                        gl::Uniform4i(location, v1, v2, v3, v4),
+
+                    UniformValue::UInt(v1) =>
+                        gl::Uniform1ui(location, v1),
+                    UniformValue::UInt2(v1, v2) =>
+                        gl::Uniform2ui(location, v1, v2),
+                    UniformValue::UInt3(v1, v2, v3) =>
+                        gl::Uniform3ui(location, v1, v2, v3),
+                    UniformValue::UInt4(v1, v2, v3, v4) =>
+                        gl::Uniform4ui(location, v1, v2, v3, v4),
+
+                    UniformValue::VFloat(1, v) =>
+                        gl::Uniform1fv(location, 1, v),
+                    UniformValue::VFloat(2, v) =>
+                        gl::Uniform2fv(location, 1, v),
+                    UniformValue::VFloat(3, v) =>
+                        gl::Uniform3fv(location, 1, v),
+                    UniformValue::VFloat(4, v) =>
+                        gl::Uniform4fv(location, 1, v),
+
+                    UniformValue::VInt(1, v) =>
+                        gl::Uniform1iv(location, 1, v),
+                    UniformValue::VInt(2, v) =>
+                        gl::Uniform2iv(location, 1, v),
+                    UniformValue::VInt(3, v) =>
+                        gl::Uniform3iv(location, 1, v),
+                    UniformValue::VInt(4, v) =>
+                        gl::Uniform4iv(location, 1, v),
+
+                    UniformValue::VUInt(1, v) =>
+                        gl::Uniform1uiv(location, 1, v),
+                    UniformValue::VUInt(2, v) =>
+                        gl::Uniform2uiv(location, 1, v),
+                    UniformValue::VUInt(3, v) =>
+                        gl::Uniform3uiv(location, 1, v),
+                    UniformValue::VUInt(4, v) =>
+                        gl::Uniform4uiv(location, 1, v),
+
+                    UniformValue::MatrixVFloat(2, v) =>
+                        gl::UniformMatrix2fv(location, 1, gl::FALSE, v),
+                    UniformValue::MatrixVFloat(3, v) =>
+                        gl::UniformMatrix3fv(location, 1, gl::FALSE, v),
+                    UniformValue::MatrixVFloat(4, v) =>
+                        gl::UniformMatrix4fv(location, 1, gl::FALSE, v),
+                    
+                    _ => panic!("Unknown uniform value")
+                }
+            }
+        }
     }
 }
 
@@ -82,6 +189,31 @@ impl Drop for ShaderProgram {
     fn drop(&mut self) {
         unsafe { gl::DeleteProgram(self.id); }
     }
+}
+
+pub enum UniformValue {
+    Float(f32),
+    Float2(f32, f32),
+    Float3(f32, f32, f32),
+    Float4(f32, f32, f32, f32),
+
+    Int(i32),
+    Int2(i32, i32),
+    Int3(i32, i32, i32),
+    Int4(i32, i32, i32, i32),
+
+    UInt(u32),
+    UInt2(u32, u32),
+    UInt3(u32, u32, u32),
+    UInt4(u32, u32, u32, u32),
+
+    VFloat(u32, *const gl::types::GLfloat),
+    VInt(u32, *const gl::types::GLint),
+    VUInt(u32, *const gl::types::GLuint),
+
+    MatrixVFloat(u32, *const gl::types::GLfloat),
+    MatrixVInt(u32, *const gl::types::GLint),
+    MatrixVUInt(u32, *const gl::types::GLuint),
 }
 
 pub struct Shader {
