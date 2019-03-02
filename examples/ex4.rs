@@ -42,6 +42,10 @@ use tuber_graphics_opengl::shader::*;
 fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let sdl_video_subsystem = sdl_context.video()?;
+    let gl_attr = sdl_video_subsystem.gl_attr();
+    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+    gl_attr.set_context_version(3, 3);
+
     let sdl_event_pump = Rc::new(RefCell::new(sdl_context.event_pump()?));
     let mut window = SDLWindow::new(&sdl_video_subsystem, sdl_event_pump.clone());
     gl::load_with(|s| sdl_video_subsystem.gl_get_proc_address(s)
