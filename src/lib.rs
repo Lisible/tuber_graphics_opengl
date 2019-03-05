@@ -21,6 +21,12 @@
 * SOFTWARE.
 */
 
+use std::fs::File;
+use std::path::Path;
+use std::io::prelude::*;
+
+use tuber::resources::ResourceLoader;
+
 pub mod opengl;
 
 pub type Position3D = (f32, f32, f32);
@@ -221,5 +227,46 @@ impl RenderBatch {
 
     pub fn size(&self) -> usize {
         self.size
+    }
+}
+
+pub struct ShaderLoader {}
+impl ResourceLoader<opengl::ShaderProgram> for ShaderLoader {
+    fn load(identifier: &'static str) 
+        -> Result<opengl::ShaderProgram, String> {
+        let mut resource_file_path = String::from("data/");
+        resource_file_path.push_str(identifier);
+        resource_file_path.push_str(".jbb");
+
+        let mut resource_file = File::open(resource_file_path)
+            .expect("Couldn't open resource file");
+        let mut resource_file_content = String::new();
+        resource_file.read_to_string(&mut resource_file_content)
+            .expect("Couldn't read resource file");
+        
+        let resource_metadata: serde_json::Value = 
+            serde_json::from_str(&resource_file_content)
+            .expect("Couldn't parse resource file");
+
+        let vertex_shader_file = resource_metadata.get("vertex")
+            .expect("Vertex shader not found").as_str().unwrap();
+        let fragment_shader_file = resource_metadata.get("fragment")
+            .expect("Fragment shader not found").as_str().unwrap();
+
+        let vertex_file = "data/shaders/".to_owned() + vertex_shader_file;
+        let vertex_path = Path::new(&vertex_file);
+        let fragment_file = "data/shaders/".to_owned() + fragment_shader_file;
+        let fragment_path = Path::new(&fragment_file);
+
+        let vertex_shader = opengl::Shader::from_file(&vertex_path,
+                                                      gl::VERTEX_SHADER)?;
+        let fragment_shader = opengl::Shader::from_file(&fragment_path,
+                                                      gl::FRAGMENT_SHADER)?;
+
+        let shader = opengl::ShaderProgram::from_shaders(
+            &[vertex_shader, fragment_shader]
+        )?;
+
+        Ok(shader)
     }
 }

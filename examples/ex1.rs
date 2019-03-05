@@ -36,6 +36,8 @@ use tuber::input::keyboard;
 use tuber_window_sdl2::SDLWindow;
 use tuber_graphics_opengl::{Vertex, Mesh, Renderer, RenderBatch};
 
+use tuber::resources::ResourceLoader;
+use tuber_graphics_opengl::ShaderLoader;
 
 fn main() -> Result<(), String> {
 
@@ -47,15 +49,13 @@ fn main() -> Result<(), String> {
 
     let sdl_event_pump = Rc::new(RefCell::new(sdl_context.event_pump()?));
     let mut window = SDLWindow::new(&video_subsystem, sdl_event_pump.clone());
-    let gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
-
+    let gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) 
+                           as *const std::os::raw::c_void);
 
     let mut renderer = Renderer::new();
 
-    let shader_id = load_shader();
-    unsafe { gl::UseProgram(shader_id); }
-
-
+    let shader = ShaderLoader::load("shaders/shader")?;
+    shader.use_program();
 
     unsafe { 
         gl::ClearColor(0.3, 0.3, 0.5, 1.0); 
@@ -95,42 +95,4 @@ fn main() -> Result<(), String> {
     }
 
     Ok(())
-}
-
-fn load_shader() -> gl::types::GLuint {
-    let vertex_shader_id = unsafe { gl::CreateShader(gl::VERTEX_SHADER) };
-    let fragment_shader_id = unsafe { gl::CreateShader(gl::FRAGMENT_SHADER) };
-
-    let vertex_shader_source = &CString::new(
-        include_str!("../data/shader.vert")).unwrap(); 
-    let fragment_shader_source = &CString::new(
-        include_str!("../data/shader.frag")).unwrap();
-
-    unsafe {
-        gl::ShaderSource(vertex_shader_id, 
-                         1, 
-                         &vertex_shader_source.as_ptr(), 
-                         std::ptr::null());
-        gl::CompileShader(vertex_shader_id);
-
-        gl::ShaderSource(fragment_shader_id, 
-                         1, 
-                         &fragment_shader_source.as_ptr(), 
-                         std::ptr::null());
-        gl::CompileShader(fragment_shader_id);
-    }
-
-    let shader_program_id = unsafe { gl::CreateProgram() };
-    unsafe {
-        gl::AttachShader(shader_program_id, vertex_shader_id);
-        gl::AttachShader(shader_program_id, fragment_shader_id);
-        gl::LinkProgram(shader_program_id);
-        gl::DetachShader(shader_program_id, vertex_shader_id);
-        gl::DetachShader(shader_program_id, fragment_shader_id);
-        gl::DeleteShader(vertex_shader_id);
-        gl::DeleteShader(fragment_shader_id);
-    }
-
-    shader_program_id
-
 }
