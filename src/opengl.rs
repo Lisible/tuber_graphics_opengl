@@ -22,6 +22,10 @@
 * SOFTWARE.
 */
 
+use std::fs::File;
+use std::io::prelude::*;
+use std::ffi::CString;
+
 pub struct BufferObject {
     identifier: gl::types::GLuint,
     target: gl::types::GLenum,
@@ -145,3 +149,130 @@ impl Drop for VertexArrayObject {
         unsafe { gl::DeleteVertexArrays(1, &self.identifier); }
     }
 }
+
+pub struct ShaderProgram {
+    identifier: gl::types::GLuint
+}
+
+impl ShaderProgram {
+
+    /// Creates a shader program from a shader slice
+    pub fn from_shaders(shaders: &[Shader]) -> Result<ShaderProgram, String> {
+        let identifier = unsafe { gl::CreateProgram() };
+
+        for shader in shaders {
+            unsafe { gl::AttachShader(identifier, shader.identifier()); }
+        }
+
+        unsafe { gl::LinkProgram(identifier); }
+
+        let mut success = 1;
+        unsafe { 
+            gl::GetProgramiv(identifier, gl::LINK_STATUS, &mut success);
+        }
+
+        if success == 0 {
+           let mut length = 0;
+           unsafe { 
+               gl::GetProgramiv(identifier, gl::INFO_LOG_LENGTH, &mut length); 
+           }
+
+           let mut buffer = Vec::with_capacity(length as usize + 1);
+           buffer.extend([b' '].iter().cycle().take(length as usize));
+           let error = unsafe { CString::from_vec_unchecked(buffer) };
+
+           unsafe {
+                gl::GetProgramInfoLog(identifier,
+                                      length,
+                                      std::ptr::null_mut(),
+                                      error.as_ptr() as *mut gl::types::GLchar);
+           }
+
+           return Err(error.to_string_lossy().into_owned());
+        }
+        for shader in shaders {
+            unsafe { gl::DetachShader(identifier, shader.identifier()); }
+        }
+
+        Ok(ShaderProgram { identifier })
+    }
+
+    pub fn use_program(&self) {
+        unsafe { gl::UseProgram(self.identifier); }
+    }
+}
+
+pub struct Shader {
+    identifier: gl::types::GLuint 
+}
+
+impl Shader {
+    /// Creates a shader with the given source file path
+    pub fn from_file(path: &std::path::Path, 
+                     kind: gl::types::GLenum) -> Result<Shader, String> {
+        let identifier = unsafe { gl::CreateShader(kind) }; 
+        let source = Shader::read_source_file(&path)?;
+        Shader::compile_shader(identifier, source)?;
+
+        Ok(Shader { identifier })
+    }
+
+    pub fn identifier(&self) -> gl::types::GLuint {
+        self.identifier
+    }
+
+    fn read_source_file(path: &std::path::Path) -> Result<CString, String> {
+        let mut source_file = File::open(path)
+            .expect("Couldn't open shader source file");
+        let mut contents = String::new();
+        source_file.read_to_string(&mut contents)
+            .expect("Couldn't read shader source file");
+        Ok(CString::new(contents).expect("Interior nul byte found"))
+    }
+
+    fn compile_shader(identifier: gl::types::GLuint,
+                      source: CString) -> Result<(), String> {
+        unsafe {
+            gl::ShaderSource(identifier,
+                             1,
+                             &source.as_ptr(),
+                             std::ptr::null());
+            gl::CompileShader(identifier);  
+        }
+
+        let mut success = 1;
+        unsafe { 
+            gl::GetShaderiv(identifier, gl::COMPILE_STATUS, &mut success);
+        }
+
+        if success == 0 {
+           let mut length = 0;
+           unsafe { 
+               gl::GetShaderiv(identifier, gl::INFO_LOG_LENGTH, &mut length); 
+           }
+
+           let mut buffer = Vec::with_capacity(length as usize + 1);
+           buffer.extend([b' '].iter().cycle().take(length as usize));
+           let error = unsafe { CString::from_vec_unchecked(buffer) };
+
+           unsafe {
+                gl::GetShaderInfoLog(identifier,
+                                     length,
+                                     std::ptr::null_mut(),
+                                     error.as_ptr() as *mut gl::types::GLchar);
+           }
+
+           return Err(error.to_string_lossy().into_owned());
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for Shader {
+    fn drop(&mut self) {
+        unsafe { gl::DeleteShader(self.identifier); }
+    }
+}
+
+
