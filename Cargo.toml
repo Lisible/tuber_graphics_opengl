@@ -12,6 +12,7 @@ nalgebra-glm = "0.3.0"
 [dev-dependencies]
 tuber = { git = "https://github.com/Lisible/tuber" }
 tuber_window_sdl2 = { git = "https://github.com/Lisible/tuber_window_sdl2" }
+rand = "0.6.5"
 
 [dev-dependencies.sdl2]
 version = "0.32.1"

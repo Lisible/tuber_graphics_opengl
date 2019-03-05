@@ -1,13 +1,14 @@
 /*
 * MIT License
 *
-* Copyright (c) 2018-2019 Clément SIBILLE
+* Copyright (c) 2018 Clément SIBILLE
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
 *
 * The above copyright notice and this permission notice shall be included in all
 * copies or substantial portions of the Software.
@@ -21,112 +22,115 @@
 * SOFTWARE.
 */
 
+use rand::prelude::*;
 use std::ffi::CString;
 use std::rc::Rc;
-use std::cell::RefCell; 
+use std::cell::RefCell;
+
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
 
 use tuber::window::{Window, WindowEvent};
+use tuber::input::keyboard;
+
 use tuber_window_sdl2::SDLWindow;
+use tuber_graphics_opengl::{Vertex, Mesh, Renderer, RenderBatch};
 
-use tuber::input::keyboard::Key;
-
-use tuber_graphics_opengl::shader::{Shader, ShaderProgram};
-use tuber_graphics_opengl::opengl;
-use tuber_graphics_opengl::offset_of;
-
-struct Vertex {
-    position: (f32, f32, f32),
-    color: (f32, f32, f32)
-}
 
 fn main() -> Result<(), String> {
+
     let sdl_context = sdl2::init()?;
-    let sdl_video_subsystem = sdl_context.video()?;
+    let video_subsystem = sdl_context.video()?;
+    let gl_attr = video_subsystem.gl_attr();
+    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+    gl_attr.set_context_version(3, 3);
+
     let sdl_event_pump = Rc::new(RefCell::new(sdl_context.event_pump()?));
-    let mut window = SDLWindow::new(&sdl_video_subsystem, sdl_event_pump.clone());
-    gl::load_with(|s| sdl_video_subsystem.gl_get_proc_address(s)
-                  as *const std::os::raw::c_void);
+    let mut window = SDLWindow::new(&video_subsystem, sdl_event_pump.clone());
+    let gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
 
-     
-    
-    let vertex_shader = Shader::from_source(&CString::new(
-            include_str!("shaders/ex1.vert")).unwrap(),
-            gl::VERTEX_SHADER).unwrap();
-    let fragment_shader = Shader::from_source(&CString::new(
-            include_str!("shaders/ex1.frag")).unwrap(),
-            gl::FRAGMENT_SHADER).unwrap();
+    let mut renderer = Renderer::new();
 
-    let shader_program = ShaderProgram::from_shaders(
-        &[vertex_shader, fragment_shader]
-    ).unwrap();
+    let shader_id = load_shader();
+    unsafe { gl::UseProgram(shader_id); }
 
 
-    let vertices: Vec<Vertex> = vec![
-        Vertex { position: (-0.5, -0.5, 0.0), color: (1.0, 0.0, 0.0) },
-        Vertex { position: (0.5, -0.5, 0.0), color: (0.0, 1.0, 0.0) },
-        Vertex { position: (0.0, 0.5, 0.0),  color: (0.0, 0.0, 1.0) },
-        Vertex { position: (-0.5, 0.5, 0.0),  color: (0.0, 0.0, 1.0) },
-        Vertex { position: (0.5, 0.5, 0.0),  color: (0.0, 0.0, 1.0) },
-        Vertex { position: (0.0, -0.5, 0.0), color: (0.0, 0.0, 1.0) }
-    ];
-
-    let mut vbo = opengl::BufferObject::new();
-    vbo.bind(gl::ARRAY_BUFFER);
-    vbo.fill((vertices.len() * std::mem::size_of::<Vertex>()) as gl::types::GLsizeiptr,
-             vertices.as_ptr() as *const gl::types::GLvoid,
-             gl::STATIC_DRAW);
-    vbo.unbind();
-   
-    
-    let mut vao = opengl::VertexArrayObject::new();
-    vao.bind();
-    vbo.bind(gl::ARRAY_BUFFER);
-    vao.enable_vertex_attrib_array(0);
-    vao.vertex_attrib_pointer(
-        0,
-        3,
-        gl::FLOAT,
-        gl::FALSE,
-        std::mem::size_of::<Vertex>() as gl::types::GLint,
-        std::ptr::null());
-    vao.enable_vertex_attrib_array(1);
-    vao.vertex_attrib_pointer(
-        1,
-        3,
-        gl::FLOAT,
-        gl::FALSE,
-        std::mem::size_of::<Vertex>() as gl::types::GLint,
-        offset_of!(Vertex, color) as *const gl::types::GLvoid);
-    vbo.unbind(); 
-    vao.unbind();
-
-    shader_program.use_program();
 
     unsafe { 
-        gl::Viewport(0, 0, 800, 600);
         gl::ClearColor(0.3, 0.3, 0.5, 1.0); 
     }
 
     'main_loop: loop {
-        while let Some(event) = window.poll_event() {
+        for event in window.poll_event() {
             match event {
                 WindowEvent::Close |
-                WindowEvent::KeyDown(Key::Escape) => break 'main_loop,
+                WindowEvent::KeyDown(keyboard::Key::Escape) => break 'main_loop,
                 _ => {}
             }
         }
-        
-        unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
-        unsafe {
-            vao.bind();
-            gl::DrawArrays(
-                gl::TRIANGLES,
-                0,
-                vertices.len() as i32);
+
+        let mut vertices = vec!();
+        let mut rng = rand::thread_rng();
+        for _ in 0..999 {
+            let x: f32 = rng.gen::<f32>() * 2f32 - 1f32;
+            let y: f32 = rng.gen::<f32>() * 2f32 - 1f32;
+            let z: f32 = rng.gen::<f32>() * 2f32 - 1f32;
+            vertices.push(
+                Vertex::with_values((x, y, z), (rng.gen(), rng.gen(), rng.gen()), (0.0, 0.0))
+            );
         }
+
+        let mut mesh = Mesh::new();
+        mesh.add_vertices(&vertices); 
+
+        let mut render_batch = RenderBatch::new(1000);
+        render_batch.add_mesh(mesh);
+
+        renderer.push_batch(render_batch);
+
+        unsafe{gl::Clear(gl::COLOR_BUFFER_BIT);}
+        renderer.render();
         window.display();
     }
 
     Ok(())
+}
+
+fn load_shader() -> gl::types::GLuint {
+    let vertex_shader_id = unsafe { gl::CreateShader(gl::VERTEX_SHADER) };
+    let fragment_shader_id = unsafe { gl::CreateShader(gl::FRAGMENT_SHADER) };
+
+    let vertex_shader_source = &CString::new(
+        include_str!("../data/shader.vert")).unwrap(); 
+    let fragment_shader_source = &CString::new(
+        include_str!("../data/shader.frag")).unwrap();
+
+    unsafe {
+        gl::ShaderSource(vertex_shader_id, 
+                         1, 
+                         &vertex_shader_source.as_ptr(), 
+                         std::ptr::null());
+        gl::CompileShader(vertex_shader_id);
+
+        gl::ShaderSource(fragment_shader_id, 
+                         1, 
+                         &fragment_shader_source.as_ptr(), 
+                         std::ptr::null());
+        gl::CompileShader(fragment_shader_id);
+    }
+
+    let shader_program_id = unsafe { gl::CreateProgram() };
+    unsafe {
+        gl::AttachShader(shader_program_id, vertex_shader_id);
+        gl::AttachShader(shader_program_id, fragment_shader_id);
+        gl::LinkProgram(shader_program_id);
+        gl::DetachShader(shader_program_id, vertex_shader_id);
+        gl::DetachShader(shader_program_id, fragment_shader_id);
+        gl::DeleteShader(vertex_shader_id);
+        gl::DeleteShader(fragment_shader_id);
+    }
+
+    shader_program_id
+
 }

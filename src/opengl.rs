@@ -1,7 +1,7 @@
 /*
 * MIT License
 *
-* Copyright (c) 2018-2019 Clément SIBILLE
+* Copyright (c) 2018 Clément SIBILLE
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -22,210 +22,126 @@
 * SOFTWARE.
 */
 
-pub struct VertexArrayObject {
-    id: gl::types::GLuint,
-    bound: bool
-}
-
-impl VertexArrayObject {
-    /// Creates a new vertex array object
-    pub fn new() -> VertexArrayObject {
-        let mut id : gl::types::GLuint = 0;
-        unsafe { gl::GenVertexArrays(1, &mut id); }
-        VertexArrayObject { 
-            id,
-            bound: false
-        }
-    }
-
-    /// Binds the vertex array object 
-    pub fn bind(&mut self) {
-        unsafe { gl::BindVertexArray(self.id); }
-        self.bound = true;
-    }
-    /// Unbinds the currently bound vertex array object
-    pub fn unbind(&mut self) {
-        assert!(self.bound, "VAO must be bound");
-
-        unsafe { gl::BindVertexArray(0); }
-        self.bound = false;
-    }
-
-    pub fn enable_vertex_attrib_array(&self, index: gl::types::GLuint) {
-        assert!(self.bound, "VAO must be bound");
-        unsafe { gl::EnableVertexAttribArray(index); }
-    }
-
-    pub fn vertex_attrib_pointer(&self,
-                                 index: gl::types::GLuint,
-                                 size: gl::types::GLint,
-                                 value_type: gl::types::GLenum,
-                                 normalized: gl::types::GLboolean,
-                                 stride: gl::types::GLsizei,
-                                 pointer: *const gl::types::GLvoid) {
-        assert!(self.bound, "VAO must be bound");
-        unsafe {
-            gl::VertexAttribPointer(index,
-                                    size,
-                                    value_type,
-                                    normalized,
-                                    stride,
-                                    pointer);
-        }
-    }
-}
-
-impl Drop for VertexArrayObject {
-    fn drop(&mut self) {
-        unsafe { gl::DeleteVertexArrays(1, &self.id); }
-    }
-}
-
 pub struct BufferObject {
-    id: gl::types::GLuint,
-    target: Option<gl::types::GLenum>,
+    identifier: gl::types::GLuint,
+    target: gl::types::GLenum,
 }
 
 impl BufferObject {
-    /// Creates a new buffer object
-    pub fn new() -> BufferObject {
-        let mut id : gl::types::GLuint = 0;
-        unsafe { gl::GenBuffers(1, &mut id); }
+    /// Creates a new, empty buffer object for the given target
+    pub fn new(target: gl::types::GLenum) -> BufferObject {
+        let mut identifier = 0;
+        unsafe { gl::GenBuffers(1, &mut identifier); }
+
         BufferObject { 
-            id,
-            target: None 
+            identifier,
+            target
         }
     }
 
-    /// Binds the buffer object to the desired target
-    pub fn bind(&mut self, target: gl::types::GLenum) {
-        self.target = Some(target);
-        unsafe { gl::BindBuffer(target, self.id); }
+    /// Creates a buffer with the given size
+    pub fn with_size<T>(target: gl::types::GLenum,
+                        size: usize, 
+                        usage: gl::types::GLenum) -> BufferObject {
+        let buffer = BufferObject::new(target);
+        buffer.bind();
+        buffer.set_data(size * std::mem::size_of::<T>(),
+                        std::ptr::null(),
+                        usage);
+        buffer.unbind();
+
+        buffer
     }
-    /// Unbinds the buffer object
-    pub fn unbind(&mut self) {
-        if let Some(target) = self.target {
-            unsafe { gl::BindBuffer(target, 0); }
-            self.target = None;
+
+    /// Binds the buffer to its target
+    pub fn bind(&self) {
+        unsafe { gl::BindBuffer(self.target, self.identifier); }
+    }
+
+    /// Unbinds the buffer from its target
+    pub fn unbind(&self) {
+        unsafe { gl::BindBuffer(self.target, 0); }
+    }
+
+    /// Sets the data of the buffer
+    pub fn set_data(&self,
+                    size: usize,
+                    data: *const gl::types::GLvoid,
+                    usage: gl::types::GLenum) {
+        unsafe { 
+            gl::BufferData(self.target, size as gl::types::GLsizeiptr, data, usage);
         }
     }
 
-    /// Fills the buffer object with data
-    pub fn fill(&self,
-                size: gl::types::GLsizeiptr,
-                data: *const gl::types::GLvoid,
-                usage: gl::types::GLenum) {
-        let target = self.target.expect("BufferObject must be bound to be filled");
-
+    /// Updates the data of the buffer
+    pub fn update_data(&self,
+                       offset: usize,
+                       size: usize,
+                       data: *const gl::types::GLvoid) {
         unsafe {
-            gl::BufferData(target,
-                           size,
-                           data,
-                           usage);
+            gl::BufferSubData(self.target,
+                              offset as gl::types::GLintptr,
+                              size as gl::types::GLsizeiptr,
+                              data);
         }
     }
 }
 
 impl Drop for BufferObject {
     fn drop(&mut self) {
-        unsafe { gl::DeleteBuffers(1, &self.id); }
+        unsafe { gl::DeleteBuffers(1, &self.identifier); }
     }
 }
 
-pub struct Texture {
-    id: gl::types::GLuint,
-    target: Option<gl::types::GLenum>,
+pub struct VertexArrayObject {
+    identifier: gl::types::GLuint
 }
 
-impl Texture {
-    /// Creates a new opengl texture object
-    pub fn new() -> Texture {
-        let mut id : gl::types::GLuint = 0;
-        unsafe { gl::GenTextures(1, &mut id); }
-        Texture { 
-            id,
-            target: None
-        }
+impl VertexArrayObject {
+    /// Creates a new vertex array object
+    pub fn new() -> VertexArrayObject {
+        let mut identifier = 0;
+        unsafe { gl::GenVertexArrays(1, &mut identifier); }
+
+        VertexArrayObject { identifier }
     }
 
-    /// Returns the id of the texture
-    pub fn id(&self) -> gl::types::GLuint {
-        self.id
+    /// Binds the vertex array object
+    pub fn bind(&self) {
+        unsafe { gl::BindVertexArray(self.identifier); }
     }
 
-    /// Binds the texture to the given target
-    pub fn bind(&mut self, target: gl::types::GLenum) {
-        self.target = Some(target);
-        unsafe { gl::BindTexture(target, self.id); } 
+    /// Unbinds the vertex array object
+    pub fn unbind(&self) {
+        unsafe { gl::BindVertexArray(0); }
     }
-    /// Unbinds the texture from the current target
-    ///
-    /// Does nothing if the texture isn't bound
-    pub fn unbind(&mut self) {
-        if let Some(target) = self.target {
-            unsafe { gl::BindTexture(target, 0); }
-            self.target = None;
-        }
+
+    /// Enables the vertex attribute with the given index
+    pub fn enable_attribute(&self, index: usize) {
+        unsafe { gl::EnableVertexAttribArray(index as gl::types::GLuint); }
     }
-   
-    /// Sets the image of the texture
-    pub fn set_image(&self, level: gl::types::GLint,
-                     internal_format: gl::types::GLint,
-                     width: gl::types::GLsizei,
-                     height: gl::types::GLsizei,
-                     border: gl::types::GLint,
-                     format: gl::types::GLenum,
-                     data_type: gl::types::GLenum,
-                     data: *const gl::types::GLvoid) {
-        let target = self.target.expect("Texture must be bound");
+
+    /// Configures the attribute with the given index
+    pub fn configure_attribute(&self,
+                               index: usize,
+                               size: usize,
+                               kind: gl::types::GLenum,
+                               normalize: gl::types::GLboolean,
+                               stride: usize,
+                               pointer: usize) {
         unsafe {
-            gl::TexImage2D(target,
-                           level,
-                           internal_format,
-                           width,
-                           height,
-                           border,
-                           format,
-                           data_type,
-                           data);
-        }
-    }
-
-    pub fn generate_mipmap(&self) {
-        let target = self.target.expect("Texture must be bound");
-        unsafe { gl::GenerateMipmap(target); }
-    }
-
-    pub fn set_parameter(&self, 
-                         parameter_name: gl::types::GLenum, 
-                         parameter_value: TextureParameterValue) {
-        let target = self.target.expect("Texture must be bound");
-        match parameter_value {
-            TextureParameterValue::Int(value) => unsafe { 
-                gl::TexParameteri(target, parameter_name, value);
-            },
-            TextureParameterValue::Float(value) => unsafe {
-                gl::TexParameterf(target, parameter_name, value);
-            },
-            TextureParameterValue::Ints(values) => unsafe {
-                gl::TexParameteriv(target, parameter_name, values);
-            },
-            TextureParameterValue::Floats(values) => unsafe {
-                gl::TexParameterfv(target, parameter_name, values);
-            }
+            gl::VertexAttribPointer(index as gl::types::GLuint,
+                                    size as gl::types::GLint,
+                                    kind,
+                                    normalize,
+                                    stride as gl::types::GLsizei,
+                                    pointer as *const gl::types::GLvoid);
         }
     }
 }
 
-impl Drop for Texture {
+impl Drop for VertexArrayObject {
     fn drop(&mut self) {
-        unsafe { gl::DeleteTextures(1, &self.id); }
+        unsafe { gl::DeleteVertexArrays(1, &self.identifier); }
     }
-}
-
-pub enum TextureParameterValue {
-    Int(gl::types::GLint),
-    Float(gl::types::GLfloat),
-    Ints(*const gl::types::GLint),
-    Floats(*const gl::types::GLfloat)
 }
