@@ -145,7 +145,28 @@ impl Renderer {
             batch.add_mesh(mesh);
             self.push_batch(batch);
         } else {
-            // Append to existing batch
+            self.pending_batches.last_mut().unwrap().add_mesh(mesh);
+        }
+    }
+
+    pub fn draw_quad(&mut self, quad: Quad) {
+        let mut mesh = Mesh::new();
+        mesh.add_vertices(&[quad.top_left().clone(), 
+                          quad.top_right().clone(), 
+                          quad.bottom_right().clone(), 
+                          quad.bottom_left().clone()]);
+
+        let batch_configuration =
+            RenderBatchConfiguration::new(gl::TRIANGLE_FAN,
+                                          quad.shader_identifier(),
+                                          None);
+
+        if self.pending_batches.is_empty() || 
+            *self.pending_batches.last().unwrap().configuration() != batch_configuration {
+            let mut batch = RenderBatch::new(batch_configuration, 1000);
+            batch.add_mesh(mesh);
+            self.push_batch(batch);
+        } else {
             self.pending_batches.last_mut().unwrap().add_mesh(mesh);
         }
     }
@@ -385,6 +406,47 @@ impl Line {
     }
     pub fn v1(&self) -> &Vertex {
         &self.v1
+    }
+    pub fn shader_identifier(&self) -> &'static str {
+        self.shader_identifier
+    }
+}
+
+pub struct Quad {
+    top_left: Vertex,
+    top_right: Vertex,
+    bottom_right: Vertex,
+    bottom_left: Vertex,
+    shader_identifier: &'static str
+}
+
+impl Quad {
+    pub fn new(top_left: Vertex,
+               top_right: Vertex,
+               bottom_right: Vertex,
+               bottom_left: Vertex,
+               shader_identifier: &'static str) -> Quad {
+        Quad {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+            shader_identifier
+        }
+    }
+
+
+    pub fn top_left(&self) -> &Vertex {
+        &self.top_left
+    }
+    pub fn top_right(&self) -> &Vertex {
+        &self.top_right
+    }
+    pub fn bottom_right(&self) -> &Vertex {
+        &self.bottom_right
+    }
+    pub fn bottom_left(&self) -> &Vertex {
+        &self.bottom_left
     }
     pub fn shader_identifier(&self) -> &'static str {
         self.shader_identifier
