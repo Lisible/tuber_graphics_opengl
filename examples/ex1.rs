@@ -34,10 +34,10 @@ use tuber::window::{Window, WindowEvent};
 use tuber::input::keyboard;
 
 use tuber_window_sdl2::SDLWindow;
-use tuber_graphics_opengl::{Vertex, Mesh, Renderer, RenderBatch};
+use tuber_graphics_opengl::{Vertex, Mesh, Renderer, RenderBatch, RenderBatchConfiguration};
 
-use tuber::resources::ResourceLoader;
-use tuber_graphics_opengl::ShaderLoader;
+use tuber::resources::{ResourceLoader, ResourceStore};
+use tuber_graphics_opengl::{ShaderLoader, ShaderStore};
 
 fn main() -> Result<(), String> {
 
@@ -54,8 +54,9 @@ fn main() -> Result<(), String> {
 
     let mut renderer = Renderer::new();
 
+    let mut shader_store: Box<ResourceStore<tuber_graphics_opengl::opengl::ShaderProgram>> = Box::new(ShaderStore::new());
     let shader = ShaderLoader::load("shaders/shader")?;
-    shader.use_program();
+    shader_store.store("shader", shader);
 
     unsafe { 
         gl::ClearColor(0.3, 0.3, 0.5, 1.0); 
@@ -81,16 +82,19 @@ fn main() -> Result<(), String> {
             );
         }
 
+        // Preparing rendering
         let mut mesh = Mesh::new();
         mesh.add_vertices(&vertices); 
-
-        let mut render_batch = RenderBatch::new(1000);
+        let mut render_batch = RenderBatch::new(
+            RenderBatchConfiguration::new(gl::TRIANGLE_STRIP,
+                                          "shader",
+                                          None), 1000);
         render_batch.add_mesh(mesh);
-
         renderer.push_batch(render_batch);
 
+        // Rendering 
         unsafe{gl::Clear(gl::COLOR_BUFFER_BIT);}
-        renderer.render();
+        renderer.render(&shader_store);
         window.display();
     }
 

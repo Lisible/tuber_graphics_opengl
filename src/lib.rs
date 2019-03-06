@@ -24,8 +24,9 @@
 use std::fs::File;
 use std::path::Path;
 use std::io::prelude::*;
+use std::collections::HashMap;
 
-use tuber::resources::ResourceLoader;
+use tuber::resources::{ResourceLoader, ResourceStore};
 
 pub mod opengl;
 
@@ -129,18 +130,41 @@ impl Renderer {
         }
     }
 
+    pub fn draw_line(&mut self, line: Line) {
+        let mut mesh = Mesh::new();
+        mesh.add_vertices(&[line.v0().clone(), line.v1().clone()]);
+
+        let batch_configuration = 
+           RenderBatchConfiguration::new(gl::LINES,
+                                         line.shader_identifier(),
+                                         None);
+
+        if self.pending_batches.is_empty() || 
+            *self.pending_batches.last().unwrap().configuration() != batch_configuration {
+            let mut batch = RenderBatch::new(batch_configuration, 1000);
+            batch.add_mesh(mesh);
+            self.push_batch(batch);
+        } else {
+            // Append to existing batch
+            self.pending_batches.last_mut().unwrap().add_mesh(mesh);
+        }
+    }
+
     /// Pushes a batch into the pending batch list
     pub fn push_batch(&mut self, batch: RenderBatch) {
         self.pending_batches.push(batch);
     }
 
     /// Renders the pending batches
-    pub fn render(&mut self) {
+    pub fn render(&mut self, shader_store: &Box<ResourceStore<opengl::ShaderProgram>>) {
         for batch in &self.pending_batches {
             println!("Render batch of size {}", batch.size());
+            shader_store.get(batch.configuration().shader_identifier())
+                .expect("Shader not found")
+                .use_program();
             batch.vao().bind();
             unsafe {
-                gl::DrawArrays(gl::TRIANGLES,
+                gl::DrawArrays(batch.configuration().render_mode(),
                                0,
                                batch.size() as i32);
             }
@@ -151,7 +175,39 @@ impl Renderer {
 }
 
 
+#[derive(PartialEq)]
+pub struct RenderBatchConfiguration {
+    render_mode: gl::types::GLenum,
+    shader_identifier: &'static str,
+    texture_identifier: Option<&'static str>
+}
+
+impl RenderBatchConfiguration {
+    pub fn new(render_mode: gl::types::GLenum,
+               shader_identifier: &'static str,
+               texture_identifier: Option<&'static str>) -> RenderBatchConfiguration {
+        RenderBatchConfiguration {
+            render_mode,
+            shader_identifier,
+            texture_identifier
+        }
+    }
+
+    pub fn render_mode(&self) -> gl::types::GLenum {
+        self.render_mode
+    }
+
+    pub fn shader_identifier(&self) -> &'static str {
+        &self.shader_identifier 
+    }
+
+    pub fn texture_identifier(&self) -> &Option<&'static str> {
+        &self.texture_identifier
+    }
+}
+
 pub struct RenderBatch {
+    configuration: RenderBatchConfiguration,
     vao: opengl::VertexArrayObject,
     vbo: opengl::BufferObject,
     max_size: usize,
@@ -159,7 +215,8 @@ pub struct RenderBatch {
 }
 
 impl RenderBatch {
-    pub fn new(max_size: usize) -> RenderBatch {
+    pub fn new(configuration: RenderBatchConfiguration, 
+               max_size: usize) -> RenderBatch {
         let vao = opengl::VertexArrayObject::new();
         let vbo = opengl::BufferObject::with_size::<Vertex>(gl::ARRAY_BUFFER,
                                                             max_size,
@@ -191,6 +248,7 @@ impl RenderBatch {
         vao.unbind();
 
         RenderBatch {
+            configuration,
             vao,
             vbo,
             max_size,
@@ -215,6 +273,10 @@ impl RenderBatch {
         self.size += vertex_count;
 
         Ok(())
+    }
+
+    pub fn configuration(&self) -> &RenderBatchConfiguration {
+        &self.configuration
     }
 
     pub fn vao(&self) -> &opengl::VertexArrayObject{
@@ -268,5 +330,63 @@ impl ResourceLoader<opengl::ShaderProgram> for ShaderLoader {
         )?;
 
         Ok(shader)
+    }
+}
+
+pub struct ShaderStore {
+    shaders: HashMap<String, opengl::ShaderProgram>
+}
+
+impl ShaderStore {
+    pub fn new() -> ShaderStore {
+        ShaderStore {
+            shaders: HashMap::new()
+        }
+    }
+}
+
+impl ResourceStore<opengl::ShaderProgram> for ShaderStore {
+    fn store(&mut self, 
+             identifier: &'static str, 
+             resource: opengl::ShaderProgram) {
+        self.shaders.insert(String::from(identifier), resource);
+    }
+    fn remove(&mut self, identifier: &'static str) {
+        self.shaders.remove(identifier);
+    }
+
+    fn get(&self, identifier: &'static str) -> Option<&opengl::ShaderProgram> {
+        self.shaders.get(identifier)
+    }
+    fn get_mut(&mut self, identifier: &'static str) -> Option<&mut opengl::ShaderProgram> {
+        self.shaders.get_mut(identifier)
+    }
+}
+
+pub struct Line {
+    v0: Vertex,
+    v1: Vertex,
+    shader_identifier: &'static str
+}
+
+impl Line {
+    pub fn new(v0: Vertex,
+               v1: Vertex,
+               shader_identifier: &'static str) -> Line {
+        Line {
+            v0,
+            v1,
+            shader_identifier
+        }
+    }
+
+    pub fn v0(&self) -> &Vertex {
+        &self.v0
+    }
+    pub fn v1(&self) -> &Vertex {
+        &self.v1
+    }
+    pub fn shader_identifier(&self) -> &'static str {
+        self.shader_identifier
     }
 }
