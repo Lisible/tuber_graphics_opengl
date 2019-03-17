@@ -22,3 +22,35 @@
 */
 
 pub mod opengl;
+
+/// Represents a vertex in 3D space
+pub struct Vertex {
+    position: (f32, f32, f32),
+    color: (f32, f32, f32),
+    texture_coordinates: (f32, f32)
+}
+
+impl Vertex {
+    /// Creates a vertex with the given values
+    pub fn with_values(position: (f32, f32, f32),
+                       color: (f32, f32, f32),
+                       texture_coordinates: (f32, f32)) -> Vertex {
+        Vertex {
+            position,
+            color,
+            texture_coordinates
+        }
+    }
+
+    pub fn position(&self) -> (f32, f32, f32) {
+        self.position
+    }
+    
+    pub fn color(&self) -> (f32, f32, f32) {
+        self.color
+    }
+
+    pub fn texture_coordinates(&self) -> (f32, f32) {
+        self.texture_coordinates
+    }
+}
