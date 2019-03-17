@@ -173,12 +173,72 @@ impl Drop for VertexArrayObject {
     }
 }
 
-/// Opengl shader object wrapper
+/// OpenGL shader program wrapper
+pub struct ShaderProgram {
+    identifier: gl::types::GLuint
+}
+
+impl ShaderProgram {
+    /// Creates a shader program from a slice of shaders
+    pub fn from_shaders(shaders: &[Shader]) -> Result<ShaderProgram, String> {
+        let identifier = unsafe { gl::CreateProgram() };
+
+        for shader in shaders {
+            unsafe { gl::AttachShader(identifier, shader.identifier()); }
+        }
+
+        unsafe { gl::LinkProgram(identifier); }
+
+        let mut success = 1;
+        unsafe {
+            gl::GetProgramiv(identifier, gl::LINK_STATUS, &mut success);
+        }
+
+        if success == 0 {
+            let mut length = 0;
+            unsafe {
+                gl::GetProgramiv(identifier, gl::INFO_LOG_LENGTH, &mut length);
+            }
+
+            let mut buffer = Vec::with_capacity(length as usize + 1);
+            buffer.extend([b' '].iter().cycle().take(length as usize));
+            let error = unsafe { CString::from_vec_unchecked(buffer) };
+
+            unsafe {
+                gl::GetProgramInfoLog(identifier,
+                                      length,
+                                      std::ptr::null_mut(),
+                                      error.as_ptr() as *mut gl::types::GLchar);
+            }
+
+            return Err(error.to_string_lossy().into_owned());
+        }
+
+        for shader in shaders {
+            unsafe { gl::DetachShader(identifier, shader.identifier()); }
+        }
+
+        Ok(ShaderProgram { identifier })
+    }
+
+    /// Uses the shader program
+    pub fn use_program(&self) {
+        unsafe { gl::UseProgram(self.identifier); }
+    }
+}
+
+/// OpenGL shader object wrapper
 pub struct Shader {
-    identifier: gl::types::GLuint,
+    identifier: gl::types::GLuint
 }
 
 impl Shader {
+    pub fn from_file(path: &std::path::Path,
+                     kind: gl::types::GLenum) -> Result<Shader, String> {
+        let source_code = Shader::read_source_file(&path);
+        Shader::from_source(&source_code, kind)
+    }
+
     /// Creates a shader from source code
     pub fn from_source(source_code: &str,
                        kind: gl::types::GLenum) -> Result<Shader, String>{
@@ -193,6 +253,20 @@ impl Shader {
 
     pub fn identifier(&self) -> gl::types::GLuint {
         self.identifier
+    }
+
+    /// Reads a shader source file into a string
+    fn read_source_file(path: &std::path::Path) -> String {
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut source_file = File::open(path)
+            .expect("Couldn't open shader source file");
+        let mut content = String::new();
+        source_file.read_to_string(&mut content)
+            .expect("Couldn't read shader source file");
+
+        content
     }
 
     /// Compiles a shader
