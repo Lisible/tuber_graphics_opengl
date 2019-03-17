@@ -20,10 +20,40 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-
 //! This modules contains wrappers and utilities for OpenGL 
 
 use std::ffi::CString;
+
+/// Wrapper function for glDrawArrays
+pub fn draw_arrays(mode: gl::types::GLenum,
+                   first: gl::types::GLint,
+                   count: gl::types::GLsizei) {
+    unsafe { gl::DrawArrays(mode, first, count); }
+}
+/// Wrapper functino for glDrawElements
+pub fn draw_elements(mode: gl::types::GLenum,
+                     count: gl::types::GLsizei,
+                     data_type: gl::types::GLenum,
+                     indices: *const gl::types::GLvoid) {
+    unsafe { gl::DrawElements(mode, count, data_type, indices); }
+}
+
+/// Sets the viewport
+pub fn set_viewport(x: gl::types::GLint, y: gl::types::GLint,
+                    width: gl::types::GLint, height: gl::types::GLint) {
+    unsafe { gl::Viewport(x, y, width, height); }
+}
+
+type Color = (f32, f32, f32, f32);
+
+/// Sets the clear values for the color buffers
+pub fn set_clear_color(color: Color) {
+    unsafe { gl::ClearColor(color.0, color.1, color.2, color.3); }
+}
+/// Clear the buffers
+pub fn clear(mask: gl::types::GLenum) {
+    unsafe { gl::Clear(mask); }
+}
 
 /// OpenGL buffer object wrapper
 pub struct BufferObject {
@@ -144,7 +174,7 @@ impl VertexArrayObject {
                          index: usize,
                          size: usize,
                          kind: gl::types::GLenum,
-                         normalized: bool,
+                         normalized: gl::types::GLboolean,
                          stride: usize,
                          pointer: *const gl::types::GLvoid) {
         self.panic_if_not_bound();
