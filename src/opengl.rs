@@ -13,13 +13,15 @@
 * The above copyright notice and this permission notice shall be included in all
 * copies or substantial portions of the Software.
 *
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+* INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+
 //! This modules contains wrappers and utilities for OpenGL 
 
 use std::ffi::CString;
@@ -58,8 +60,7 @@ pub fn clear(mask: gl::types::GLenum) {
 /// OpenGL buffer object wrapper
 pub struct BufferObject {
     identifier: gl::types::GLuint,
-    target: gl::types::GLenum,
-    is_bound: bool
+    target: gl::types::GLenum
 }
 
 impl BufferObject {
@@ -70,23 +71,18 @@ impl BufferObject {
         
         BufferObject {
             identifier,
-            target,
-            is_bound: false
+            target
         }
     }
 
     /// Binds the buffer to its target
     pub fn bind(&mut self) {
         unsafe { gl::BindBuffer(self.target, self.identifier); }
-        self.is_bound = true;
     }
 
     /// Unbinds the buffer from its target
     pub fn unbind(&mut self) {
-        self.panic_if_not_bound();
-
         unsafe { gl::BindBuffer(self.target, 0); }
-        self.is_bound = false;
     }
 
     /// Sets the buffer's data
@@ -94,8 +90,6 @@ impl BufferObject {
                     size: usize,
                     data: *const gl::types::GLvoid,
                     usage: gl::types::GLenum) {
-        self.panic_if_not_bound();
-
         unsafe { 
             gl::BufferData(self.target,
                                 size as gl::types::GLsizeiptr,
@@ -110,8 +104,6 @@ impl BufferObject {
                        offset: usize,
                        size: usize,
                        data: *const gl::types::GLvoid) {
-        self.panic_if_not_bound();
-
         unsafe {
             gl::BufferSubData(self.target,
                               offset as gl::types::GLintptr,
@@ -121,15 +113,6 @@ impl BufferObject {
 
         // TODO error handling
     }
-
-
- 
-    fn panic_if_not_bound(&self) {
-        if !self.is_bound {
-            panic!("buffer not bound");
-        }
-    }
-
 }
 
 impl Drop for BufferObject {
@@ -141,7 +124,6 @@ impl Drop for BufferObject {
 /// OpenGL vertex array object wrapper
 pub struct VertexArrayObject {
     identifier: gl::types::GLuint,
-    is_bound: bool
 }
 
 impl VertexArrayObject {
@@ -151,22 +133,18 @@ impl VertexArrayObject {
         unsafe { gl::GenVertexArrays(1, &mut identifier); }
 
         VertexArrayObject {
-            identifier,
-            is_bound: false
+            identifier
         }
     }
 
     /// Binds the vertex array object
     pub fn bind(&mut self) {
         unsafe { gl::BindVertexArray(self.identifier); }
-        self.is_bound = true;
     }
 
     /// Unbinds the vertex array object
     pub fn unbind(&mut self) {
-        self.panic_if_not_bound();
         unsafe { gl::BindVertexArray(0); }
-        self.is_bound = false;
     }
 
     /// Enables and sets an attribute of the vertex array object
@@ -177,8 +155,6 @@ impl VertexArrayObject {
                          normalized: gl::types::GLboolean,
                          stride: usize,
                          pointer: *const gl::types::GLvoid) {
-        self.panic_if_not_bound();
-
         unsafe {
             gl::EnableVertexAttribArray(index as gl::types::GLuint);
             gl::VertexAttribPointer(index as gl::types::GLuint,
@@ -187,12 +163,6 @@ impl VertexArrayObject {
                                     normalized as gl::types::GLboolean,
                                     stride as gl::types::GLsizei,
                                     pointer);
-        }
-    }
-
-    fn panic_if_not_bound(&self) {
-        if !self.is_bound {
-            panic!("vertex array object not bound");
         }
     }
 }
@@ -336,5 +306,72 @@ impl Shader {
         }
 
         Ok(())
+    }
+}
+
+/// OpenGL texture wrapper
+pub struct Texture {
+    identifier: gl::types::GLuint,
+    target: gl::types::GLenum
+}
+
+impl Texture {
+    /// Creates a new texture for the given target
+    pub fn new(target: gl::types::GLenum) -> Texture {
+        let mut identifier = 0;
+        unsafe { gl::GenTextures(1, &mut identifier); }
+
+        Texture {
+            identifier,
+            target
+        }
+    }
+
+    /// Sets the image data for a 2D texture
+    pub fn set_2d_image_data(&self, 
+                             level: gl::types::GLint,
+                             internal_format: gl::types::GLint,
+                             width: gl::types::GLsizei,
+                             height: gl::types::GLsizei,
+                             border: gl::types::GLint,
+                             format: gl::types::GLenum,
+                             data_type: gl::types::GLenum,
+                             data: *const gl::types::GLvoid) {
+        unsafe {
+            gl::TexImage2D(self.target,
+                           level,
+                           internal_format,
+                           width,
+                           height,
+                           border,
+                           format,
+                           data_type,
+                           data);
+        }
+    }
+
+    /// Generates the texture mipmaps
+    pub fn generate_mipmap(&self) {
+        unsafe { gl::GenerateMipmap(self.target); }
+    }
+
+
+    /// Sets a integer texture parameter
+    pub fn set_int_parameter(&self,
+                             parameter_name: gl::types::GLenum,
+                             parameter_value: gl::types::GLint) {
+        unsafe {
+            gl::TexParameteri(self.target, parameter_name, parameter_value);
+        }
+    }
+
+    /// Binds the texture
+    pub fn bind(&self) {
+        unsafe { gl::BindTexture(self.target, self.identifier); }
+    }
+
+    /// Unbinds the texture
+    pub fn unbind(&self) {
+        unsafe { gl::BindTexture(self.target, 0); }
     }
 }
