@@ -13,8 +13,7 @@
 * The above copyright notice and this permission notice shall be included in all
 * copies or substantial portions of the Software.
 *
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
@@ -23,6 +22,8 @@
 */
 
 //! This modules contains wrappers and utilities for OpenGL 
+
+use std::ffi::CString;
 
 /// OpenGL buffer object wrapper
 pub struct BufferObject {
@@ -107,7 +108,7 @@ impl Drop for BufferObject {
     }
 }
 
-/// Wrapper for OpenGL vertex array object
+/// OpenGL vertex array object wrapper
 pub struct VertexArrayObject {
     identifier: gl::types::GLuint,
     is_bound: bool
@@ -169,5 +170,67 @@ impl VertexArrayObject {
 impl Drop for VertexArrayObject {
     fn drop(&mut self) {
         unsafe { gl::DeleteVertexArrays(1, &self.identifier); }
+    }
+}
+
+/// Opengl shader object wrapper
+pub struct Shader {
+    identifier: gl::types::GLuint,
+}
+
+impl Shader {
+    /// Creates a shader from source code
+    pub fn from_source(source_code: &str,
+                       kind: gl::types::GLenum) -> Result<Shader, String>{
+        let identifier = unsafe { gl::CreateShader(kind) };
+        let source_string = CString::new(source_code)
+            .expect("Interior nul byte found");
+        
+        Shader::compile(identifier, source_string)?;
+
+        Ok(Shader { identifier })
+    }
+
+    pub fn identifier(&self) -> gl::types::GLuint {
+        self.identifier
+    }
+
+    /// Compiles a shader
+    fn compile(identifier: gl::types::GLuint,
+                   source: CString) -> Result<(), String> {
+        unsafe {
+            gl::ShaderSource(identifier,
+                             1,
+                             &source.as_ptr(),
+                             std::ptr::null());
+            gl::CompileShader(identifier);
+        }
+
+        let mut success = 1;
+        unsafe {
+            gl::GetShaderiv(identifier, gl::COMPILE_STATUS, &mut success);
+        }
+
+        if success == 0 {
+            let mut length = 0;
+            unsafe {
+                gl::GetShaderiv(identifier, gl::INFO_LOG_LENGTH, &mut length);
+            }
+
+            let mut buffer = Vec::with_capacity(length as usize + 1);
+            buffer.extend([b' '].iter().cycle().take(length as usize));
+            let error = unsafe { CString::from_vec_unchecked(buffer) };
+
+            unsafe {
+                gl::GetShaderInfoLog(identifier,
+                                     length,
+                                     std::ptr::null_mut(),
+                                     error.as_ptr() as *mut gl::types::GLchar);
+            }
+
+            return Err(error.to_string_lossy().into_owned());
+        }
+
+        Ok(())
     }
 }
