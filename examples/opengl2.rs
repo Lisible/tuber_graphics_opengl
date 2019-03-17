@@ -69,13 +69,20 @@ fn main() -> Result<(), String> {
 
 
     let vertices = [
-        Vertex::with_values((0.5, -0.5, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0)),
-        Vertex::with_values((-0.5, -0.5, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0)),
-        Vertex::with_values((0.0, 0.5, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0)),
+        Vertex::with_values((-0.5, -0.5, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0)),
+        Vertex::with_values((-0.5, 0.5, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0)),
+        Vertex::with_values((0.5, 0.5, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0)),
+        Vertex::with_values((0.5, -0.5, 0.0), (1.0, 0.0, 1.0), (0.0, 0.0)),
+    ];
+
+    let indices = [
+        0, 1, 3,
+        1, 2, 3
     ];
 
     let mut vao = opengl::VertexArrayObject::new();
     let mut vbo = opengl::BufferObject::new(gl::ARRAY_BUFFER);
+    let mut ebo = opengl::BufferObject::new(gl::ELEMENT_ARRAY_BUFFER);
 
     vbo.bind();
     vbo.set_data(vertices.len() * std::mem::size_of::<Vertex>(),
@@ -83,8 +90,15 @@ fn main() -> Result<(), String> {
                  gl::STATIC_DRAW);
     vbo.unbind();
 
+    ebo.bind();
+    ebo.set_data(indices.len() * std::mem::size_of::<gl::types::GLuint>(),
+                 indices.as_ptr() as *const gl::types::GLvoid,
+                 gl::STATIC_DRAW);
+    ebo.unbind();
+
     vao.bind();
     vbo.bind();
+    ebo.bind();
     vao.set_attribute(0, 3, gl::FLOAT, gl::FALSE,
                       std::mem::size_of::<Vertex>(),
                       std::ptr::null() as *const gl::types::GLvoid);
@@ -113,8 +127,8 @@ fn main() -> Result<(), String> {
         opengl::clear(gl::COLOR_BUFFER_BIT); 
         
         vao.bind();
-        opengl::draw_arrays(gl::TRIANGLES, 0, 
-                            vertices.len() as gl::types::GLint);
+        opengl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 
+                              std::ptr::null() as *const gl::types::GLvoid);
        
         window.display();
     }
