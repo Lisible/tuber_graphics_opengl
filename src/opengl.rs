@@ -106,3 +106,68 @@ impl Drop for BufferObject {
         unsafe { gl::DeleteBuffers(1, &self.identifier); }
     }
 }
+
+/// Wrapper for OpenGL vertex array object
+pub struct VertexArrayObject {
+    identifier: gl::types::GLuint,
+    is_bound: bool
+}
+
+impl VertexArrayObject {
+    /// Creates a new vertex array object
+    pub fn new() -> VertexArrayObject {
+        let mut identifier = 0;
+        unsafe { gl::GenVertexArrays(1, &mut identifier); }
+
+        VertexArrayObject {
+            identifier,
+            is_bound: false
+        }
+    }
+
+    /// Binds the vertex array object
+    pub fn bind(&mut self) {
+        unsafe { gl::BindVertexArray(self.identifier); }
+        self.is_bound = true;
+    }
+
+    /// Unbinds the vertex array object
+    pub fn unbind(&mut self) {
+        self.panic_if_not_bound();
+        unsafe { gl::BindVertexArray(0); }
+        self.is_bound = false;
+    }
+
+    /// Enables and sets an attribute of the vertex array object
+    pub fn set_attribute(&self,
+                         index: usize,
+                         size: usize,
+                         kind: gl::types::GLenum,
+                         normalized: bool,
+                         stride: usize,
+                         pointer: *const gl::types::GLvoid) {
+        self.panic_if_not_bound();
+
+        unsafe {
+            gl::EnableVertexAttribArray(index as gl::types::GLuint);
+            gl::VertexAttribPointer(index as gl::types::GLuint,
+                                    size as gl::types::GLint,
+                                    kind,
+                                    normalized as gl::types::GLboolean,
+                                    stride as gl::types::GLsizei,
+                                    pointer);
+        }
+    }
+
+    fn panic_if_not_bound(&self) {
+        if !self.is_bound {
+            panic!("vertex array object not bound");
+        }
+    }
+}
+
+impl Drop for VertexArrayObject {
+    fn drop(&mut self) {
+        unsafe { gl::DeleteVertexArrays(1, &self.identifier); }
+    }
+}
