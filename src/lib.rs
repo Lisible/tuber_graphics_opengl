@@ -23,7 +23,70 @@
 
 pub mod opengl;
 
+type VertexIndex = gl::types::GLuint;
+
+/// Represents a mesh
+pub struct Mesh {
+    vertices: Vec<Vertex>,
+    indices: Vec<VertexIndex>
+}
+
+impl Mesh {
+    /// Creates a new, empty mesh
+    pub fn new() -> Mesh {
+        Mesh {
+            vertices: vec!(),
+            indices: vec!()
+        }
+    }
+
+    /// Adds vertices to the mesh
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tuber_graphics_opengl::{Mesh, Vertex};
+    ///
+    /// let mut mesh = Mesh::new();
+    /// assert_eq!(mesh.vertices().len(), 0);
+    /// mesh.add_vertices(&[
+    ///     Vertex::with_values((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0)),
+    ///     Vertex::with_values((1.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0)),
+    ///     Vertex::with_values((0.0, 1.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0))
+    /// ]);
+    /// assert_eq!(mesh.vertices().len(), 3);
+    /// ```
+    pub fn add_vertices(&mut self, vertices: &[Vertex]) {
+        self.vertices.extend_from_slice(vertices);
+    }
+
+    /// Adds indices to the mesh
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tuber_graphics_opengl::Mesh;
+    ///
+    /// let mut mesh = Mesh::new();
+    /// assert_eq!(mesh.indices().len(), 0);
+    /// mesh.add_indices(&[0, 1, 2, 2, 0, 3]);
+    /// assert_eq!(mesh.indices().len(), 6);
+    /// ```
+    pub fn add_indices(&mut self, indices: &[VertexIndex]) {
+        self.indices.extend_from_slice(indices);
+    }
+
+    pub fn vertices(&self) -> &Vec<Vertex> {
+        &self.vertices
+    }
+
+    pub fn indices(&self) -> &Vec<VertexIndex> {
+        &self.indices
+    }
+}
+
 /// Represents a vertex in 3D space
+#[derive(Clone)]
 pub struct Vertex {
     position: (f32, f32, f32),
     color: (f32, f32, f32),
