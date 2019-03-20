@@ -1,7 +1,7 @@
 /*
-* MIT License
-*
+* MIT License 
 * Copyright (c) 2018 Clément SIBILLE 
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
@@ -24,6 +24,112 @@
 pub mod opengl;
 
 type VertexIndex = gl::types::GLuint;
+
+pub struct MeshRenderer {
+    vao: opengl::VertexArrayObject,
+    vbo: opengl::BufferObject,
+    ebo: opengl::BufferObject,
+    vertex_count: usize,
+    index_count: usize,
+    last_index: usize
+}
+impl MeshRenderer {
+    const MAX_SIZE : usize = 1000;
+
+    pub fn new() -> MeshRenderer {
+        let vao = opengl::VertexArrayObject::new();
+        let vbo = opengl::BufferObject::with_size(gl::ARRAY_BUFFER,
+                                                  MeshRenderer::MAX_SIZE);
+        let ebo = opengl::BufferObject::with_size(gl::ELEMENT_ARRAY_BUFFER,
+                                                  MeshRenderer::MAX_SIZE);
+
+        vao.bind();
+        vbo.bind();
+        ebo.bind();
+        vao.set_attribute(0, 3, gl::FLOAT, gl::FALSE,
+                          std::mem::size_of::<Vertex>(),
+                          std::ptr::null() as *const gl::types::GLvoid);
+        vao.set_attribute(1, 3, gl::FLOAT, gl::FALSE,
+                          std::mem::size_of::<Vertex>(),
+                          (3 * std::mem::size_of::<f32>()) 
+                          as *const gl::types::GLvoid);
+        vao.set_attribute(2, 2, gl::FLOAT, gl::FALSE,
+                          std::mem::size_of::<Vertex>(),
+                          (6 * std::mem::size_of::<f32>()) 
+                          as *const gl::types::GLvoid);
+        vao.unbind();
+
+        MeshRenderer {
+            vao,
+            vbo,
+            ebo,
+            vertex_count: 0,
+            index_count: 0,
+            last_index: 0
+        }
+    }
+
+    pub fn draw_mesh(&mut self, mesh: Mesh) {
+        let mesh_vertex_count = mesh.vertices().len();
+        let mesh_index_count = mesh.indices().len();
+
+        self.vbo.bind();
+        let mut vertexBufferPointer = self.vbo
+            .map_buffer_range(self.vertex_count * std::mem::size_of::<Vertex>(), 
+                              mesh_vertex_count * std::mem::size_of::<Vertex>(), 
+                              gl::MAP_WRITE_BIT) as *mut Vertex;
+        unsafe {
+            for vertex in mesh.vertices().iter() {
+                vertexBufferPointer.write(*vertex);
+                vertexBufferPointer = vertexBufferPointer.offset(1);
+            }
+        }
+
+        self.vbo.unmap();
+        self.vbo.unbind();
+
+        self.ebo.bind();
+        let mut indexBufferPointer = self.ebo
+            .map_buffer_range(self.index_count * std::mem::size_of::<gl::types::GLuint>(),
+                              mesh_index_count * std::mem::size_of::<gl::types::GLuint>(),
+                              gl::MAP_WRITE_BIT) as *mut gl::types::GLuint;
+
+        unsafe {
+            let last_index = self.last_index;
+            for index in mesh.indices().iter() {
+                let index_offset = if last_index == 0 {
+                    0
+                } else {
+                    last_index + 1
+                };
+
+                indexBufferPointer.write(*index + index_offset as u32);
+                dbg!(*index + index_offset as u32);
+
+                if *index + index_offset as u32 > self.last_index as u32 {
+                    self.last_index = (*index + index_offset as u32) as usize;
+                }
+
+                indexBufferPointer = indexBufferPointer.offset(1);
+            }
+        }
+
+        self.ebo.unmap();
+        self.ebo.unbind();
+
+        self.vertex_count += mesh_vertex_count;
+        self.index_count += mesh_index_count;
+    }
+
+    /// Renders the pending meshes
+    pub fn render(&mut self) {
+        self.vao.bind();
+        opengl::draw_elements(gl::TRIANGLES,
+                          self.index_count as gl::types::GLsizei,
+                          gl::UNSIGNED_INT,
+                          std::ptr::null() as *const gl::types::GLvoid);
+    }
+}
 
 /// Represents a mesh
 pub struct Mesh {
@@ -86,7 +192,7 @@ impl Mesh {
 }
 
 /// Represents a vertex in 3D space
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     position: (f32, f32, f32),
     color: (f32, f32, f32),

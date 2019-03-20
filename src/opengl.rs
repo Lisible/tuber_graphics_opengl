@@ -75,18 +75,51 @@ impl BufferObject {
         }
     }
 
+    /// Creates a new buffer object with a pre-allocated size in bytes
+    pub fn with_size(target: gl::types::GLenum, size: usize) -> BufferObject {
+        let buffer = BufferObject::new(target);
+        buffer.bind();
+        buffer.set_data(size, 
+                        std::ptr::null() as *const gl::types::GLvoid,
+                        gl::DYNAMIC_DRAW);
+        buffer.unbind();
+        buffer
+    }
+
     /// Binds the buffer to its target
-    pub fn bind(&mut self) {
+    pub fn bind(&self) {
         unsafe { gl::BindBuffer(self.target, self.identifier); }
     }
 
     /// Unbinds the buffer from its target
-    pub fn unbind(&mut self) {
+    pub fn unbind(&self) {
         unsafe { gl::BindBuffer(self.target, 0); }
     }
 
+    pub fn unmap(&self) {
+        unsafe { gl::UnmapBuffer(self.target); }
+    }
+
+    pub fn map_buffer_range(&self,
+                            offset: usize,
+                            length: usize,
+                            access: gl::types::GLbitfield) -> *mut gl::types::GLvoid {
+        unsafe { 
+            gl::MapBufferRange(self.target,
+                               offset as gl::types::GLintptr,
+                               length as gl::types::GLsizeiptr,
+                               access)
+        }
+    }
+
+    pub fn map_buffer(&self, access: gl::types::GLenum) -> *mut gl::types::GLvoid {
+        unsafe {
+            gl::MapBuffer(self.target, access)
+        }
+    }
+
     /// Sets the buffer's data
-    pub fn set_data(&mut self, 
+    pub fn set_data(&self, 
                     size: usize,
                     data: *const gl::types::GLvoid,
                     usage: gl::types::GLenum) {
@@ -100,7 +133,7 @@ impl BufferObject {
         // TODO error handling
     }
 
-    pub fn update_data(&mut self,
+    pub fn update_data(&self,
                        offset: usize,
                        size: usize,
                        data: *const gl::types::GLvoid) {
@@ -138,12 +171,12 @@ impl VertexArrayObject {
     }
 
     /// Binds the vertex array object
-    pub fn bind(&mut self) {
+    pub fn bind(&self) {
         unsafe { gl::BindVertexArray(self.identifier); }
     }
 
     /// Unbinds the vertex array object
-    pub fn unbind(&mut self) {
+    pub fn unbind(&self) {
         unsafe { gl::BindVertexArray(0); }
     }
 
