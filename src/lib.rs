@@ -22,8 +22,42 @@
 */
 
 pub mod opengl;
+use tuber::graphics::scene_renderer::SceneRenderer;
+use tuber::scene::{SceneGraph, SceneNode};
 
 type VertexIndex = gl::types::GLuint;
+
+pub struct GLSceneRenderer;
+impl GLSceneRenderer {
+    pub fn new() -> GLSceneRenderer {
+        GLSceneRenderer
+    }
+
+    fn render_scene_node(&mut self, scene_node: &SceneNode) {
+       println!("Rendering node: {}", scene_node.identifier()); 
+    }
+}
+
+impl SceneRenderer for GLSceneRenderer {
+    fn render_scene(&mut self, scene: SceneGraph) {
+        use std::collections::HashSet;
+
+        let mut stack = vec!(scene.root());
+        let mut visited = HashSet::new();
+
+        while stack.len() != 0 {
+            if let Some(node) = stack.pop() {
+                if !visited.contains(node.identifier()) {
+                    self.render_scene_node(node);
+                    visited.insert(node.identifier());
+                    for child in node.children() {
+                        stack.push(child);
+                    }
+                }
+            }
+        }
+    }
+}
 
 /// Basic mesh renderer
 pub struct MeshRenderer {
