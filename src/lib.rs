@@ -25,6 +25,7 @@ pub mod opengl;
 
 type VertexIndex = gl::types::GLuint;
 
+/// Basic mesh renderer
 pub struct MeshRenderer {
     vao: opengl::VertexArrayObject,
     vbo: opengl::BufferObject,
@@ -69,6 +70,7 @@ impl MeshRenderer {
         }
     }
 
+    /// Adds a mesh to the renderer buffer
     pub fn draw_mesh(&mut self, mesh: Mesh) {
         let mesh_vertex_count = mesh.vertices().len();
         let mesh_index_count = mesh.indices().len();
