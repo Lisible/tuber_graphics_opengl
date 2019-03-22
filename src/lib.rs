@@ -110,14 +110,14 @@ impl MeshRenderer {
         let mesh_index_count = mesh.indices().len();
 
         self.vbo.bind();
-        let mut vertexBufferPointer = self.vbo
+        let mut vertex_buffer_pointer = self.vbo
             .map_buffer_range(self.vertex_count * std::mem::size_of::<Vertex>(), 
                               mesh_vertex_count * std::mem::size_of::<Vertex>(), 
                               gl::MAP_WRITE_BIT) as *mut Vertex;
         unsafe {
             for vertex in mesh.vertices().iter() {
-                vertexBufferPointer.write(*vertex);
-                vertexBufferPointer = vertexBufferPointer.offset(1);
+                vertex_buffer_pointer.write(*vertex);
+                vertex_buffer_pointer = vertex_buffer_pointer.offset(1);
             }
         }
 
@@ -125,7 +125,7 @@ impl MeshRenderer {
         self.vbo.unbind();
 
         self.ebo.bind();
-        let mut indexBufferPointer = self.ebo
+        let mut index_buffer_pointer = self.ebo
             .map_buffer_range(self.index_count * std::mem::size_of::<gl::types::GLuint>(),
                               mesh_index_count * std::mem::size_of::<gl::types::GLuint>(),
                               gl::MAP_WRITE_BIT) as *mut gl::types::GLuint;
@@ -139,14 +139,14 @@ impl MeshRenderer {
                     last_index + 1
                 };
 
-                indexBufferPointer.write(*index + index_offset as u32);
+                index_buffer_pointer.write(*index + index_offset as u32);
                 dbg!(*index + index_offset as u32);
 
                 if *index + index_offset as u32 > self.last_index as u32 {
                     self.last_index = (*index + index_offset as u32) as usize;
                 }
 
-                indexBufferPointer = indexBufferPointer.offset(1);
+                index_buffer_pointer = index_buffer_pointer.offset(1);
             }
         }
 
