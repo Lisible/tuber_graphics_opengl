@@ -20,24 +20,29 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+use std::rc::Rc;
+use std::cell::RefCell;
 
-pub mod opengl;
 use tuber::graphics::scene_renderer::SceneRenderer;
+use tuber::resources::ResourceStore;
 
 use tuber::scene::{SceneGraph, SceneNode, NodeValue};
 
+pub mod opengl;
 type VertexIndex = gl::types::GLuint;
 
 pub struct GLSceneRenderer {
     pending_meshes: Vec<Mesh>,
-    pending_batches: Vec<RenderBatch>
+    pending_batches: Vec<RenderBatch>,
+   // texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>
 }
 impl GLSceneRenderer {
     /// Creates a new OpenGL scene renderer
-    pub fn new() -> GLSceneRenderer {
+    pub fn new(/*texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>*/) -> GLSceneRenderer {
         GLSceneRenderer {
             pending_meshes: vec!(),
-            pending_batches: vec!()
+            pending_batches: vec!(),
+            //texture_store
         }
     }
 
@@ -129,6 +134,57 @@ impl SceneRenderer for GLSceneRenderer {
         }
 
         self.render();
+    }
+}
+
+/// Builder for RenderBatchConfiguration
+///
+/// # Examples
+///
+/// ```
+/// use tuber_graphics_opengl::RenderBatchConfigurationBuilder;
+///
+/// let mut builder = RenderBatchConfigurationBuilder::new()
+///     .texture("textureA".into());
+/// let configuration = builder.build();
+/// assert_eq!(configuration.texture_identifier(), "textureA");
+/// ```
+pub struct RenderBatchConfigurationBuilder {
+    texture_identifier: String
+}
+
+impl RenderBatchConfigurationBuilder {
+    pub fn new() -> RenderBatchConfigurationBuilder {
+        RenderBatchConfigurationBuilder { 
+            texture_identifier: "default".to_string()
+        }
+    }
+
+    pub fn texture(mut self, texture_identifier: String) 
+        -> RenderBatchConfigurationBuilder {
+        self.texture_identifier = texture_identifier;
+        self
+    }
+
+    pub fn build(self) -> RenderBatchConfiguration {
+        RenderBatchConfiguration {
+            texture_identifier: self.texture_identifier
+        }
+    }
+}
+
+#[derive(Eq, PartialEq)]
+pub struct RenderBatchConfiguration {
+    texture_identifier: String
+}
+
+impl RenderBatchConfiguration {
+    pub fn new() -> RenderBatchConfigurationBuilder {
+        RenderBatchConfigurationBuilder::new()
+    }
+
+    pub fn texture_identifier(&self) -> &str {
+        &self.texture_identifier
     }
 }
 
@@ -245,6 +301,7 @@ impl RenderBatch {
 pub struct Mesh {
     vertices: Vec<Vertex>,
     indices: Vec<VertexIndex>,
+    texture_identifier: String
 }
 
 impl Mesh {
@@ -252,7 +309,8 @@ impl Mesh {
     pub fn new() -> Mesh {
         Mesh {
             vertices: vec!(),
-            indices: vec!()
+            indices: vec!(),
+            texture_identifier: "default".to_string()
         }
     }
 
@@ -298,6 +356,10 @@ impl Mesh {
 
     pub fn indices(&self) -> &Vec<VertexIndex> {
         &self.indices
+    }
+
+    pub fn texture_identiifer(&self) -> &str {
+        &self.texture_identifier
     }
 }
 
