@@ -23,23 +23,87 @@
 
 pub mod opengl;
 use tuber::graphics::scene_renderer::SceneRenderer;
-use tuber::scene::{SceneGraph, SceneNode};
+
+use tuber::scene::{SceneGraph, SceneNode, NodeValue};
 
 type VertexIndex = gl::types::GLuint;
 
-pub struct GLSceneRenderer;
+pub struct GLSceneRenderer {
+    pending_meshes: Vec<Mesh>,
+    pending_batches: Vec<RenderBatch>
+}
 impl GLSceneRenderer {
     pub fn new() -> GLSceneRenderer {
-        GLSceneRenderer
+        GLSceneRenderer {
+            pending_meshes: vec!(),
+            pending_batches: vec!()
+        }
     }
 
     fn render_scene_node(&mut self, scene_node: &SceneNode) {
-       println!("Rendering node: {}", scene_node.identifier()); 
+        match scene_node.value() {
+            NodeValue::RectangleNode(rectangle) => self.render_rectangle(rectangle),
+            _ => println!("Node value of {} isn't renderable", scene_node.identifier())
+        }
+    }
+
+    pub fn render(&mut self) {
+        self.sort_meshes();
+        self.batch_meshes();
+        self.render_batches();
+    }
+
+    fn sort_meshes(&mut self) {
+        // TODO
+    }
+
+    fn batch_meshes(&mut self) {
+        for mesh in self.pending_meshes.iter() {
+           // TODO
+           // if mesh.attributes == pending_batches.last().attributes
+           //   add to current batch
+           // else
+           //   create new batch
+            
+            if self.pending_batches.len() == 0 {
+                let mut render_batch = RenderBatch::new();
+                render_batch.add_mesh(mesh.clone());
+                self.pending_batches.push(render_batch);
+            } else {
+                self.pending_batches.last_mut().unwrap().add_mesh(mesh.clone());
+            }
+        }
+
+        self.pending_meshes.clear();
+    }
+
+    fn render_batches(&mut self) {
+        for batch in self.pending_batches.iter_mut() {
+            batch.render();
+        }
+
+        self.pending_batches.clear();
+    }
+
+    fn render_rectangle(&mut self, rectangle: &tuber::graphics::Rectangle) {
+        let mut mesh = Mesh::new();
+        let indices = [0, 1, 2, 2, 0, 3];
+        let vertices = [
+            Vertex::with_values((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.0, 0.0)),
+            Vertex::with_values((0.0, rectangle.height(), 0.0), (1.0, 1.0, 1.0), (0.0, 1.0)),
+            Vertex::with_values((rectangle.width(), rectangle.height(), 0.0), (1.0, 1.0, 1.0), (1.0, 1.0)),
+            Vertex::with_values((rectangle.width(), 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0))
+        ];
+
+        mesh.add_vertices(&vertices);
+        mesh.add_indices(&indices);
+
+        self.pending_meshes.push(mesh);
     }
 }
 
 impl SceneRenderer for GLSceneRenderer {
-    fn render_scene(&mut self, scene: SceneGraph) {
+    fn render_scene(&mut self, scene: &SceneGraph) {
         use std::collections::HashSet;
 
         let mut stack = vec!(scene.root());
@@ -56,11 +120,13 @@ impl SceneRenderer for GLSceneRenderer {
                 }
             }
         }
+
+        self.render();
     }
 }
 
-/// Basic mesh renderer
-pub struct MeshRenderer {
+/// Batch of meshes with the same attributes
+struct RenderBatch {
     vao: opengl::VertexArrayObject,
     vbo: opengl::BufferObject,
     ebo: opengl::BufferObject,
@@ -68,15 +134,16 @@ pub struct MeshRenderer {
     index_count: usize,
     last_index: usize
 }
-impl MeshRenderer {
-    const MAX_SIZE : usize = 1000;
 
-    pub fn new() -> MeshRenderer {
+impl RenderBatch {
+    const MAX_BATCH_SIZE: usize = 1000;
+
+    pub fn new() -> RenderBatch {
         let vao = opengl::VertexArrayObject::new();
         let vbo = opengl::BufferObject::with_size(gl::ARRAY_BUFFER,
-                                                  MeshRenderer::MAX_SIZE);
+                                                  RenderBatch::MAX_BATCH_SIZE);
         let ebo = opengl::BufferObject::with_size(gl::ELEMENT_ARRAY_BUFFER,
-                                                  MeshRenderer::MAX_SIZE);
+                                                  RenderBatch::MAX_BATCH_SIZE);
 
         vao.bind();
         vbo.bind();
@@ -94,7 +161,7 @@ impl MeshRenderer {
                           as *const gl::types::GLvoid);
         vao.unbind();
 
-        MeshRenderer {
+        RenderBatch {
             vao,
             vbo,
             ebo,
@@ -104,8 +171,7 @@ impl MeshRenderer {
         }
     }
 
-    /// Adds a mesh to the renderer buffer
-    pub fn draw_mesh(&mut self, mesh: Mesh) {
+    pub fn add_mesh(&mut self, mesh: Mesh) {
         let mesh_vertex_count = mesh.vertices().len();
         let mesh_index_count = mesh.indices().len();
 
@@ -168,9 +234,10 @@ impl MeshRenderer {
 }
 
 /// Represents a mesh
+#[derive(Clone)]
 pub struct Mesh {
     vertices: Vec<Vertex>,
-    indices: Vec<VertexIndex>
+    indices: Vec<VertexIndex>,
 }
 
 impl Mesh {
