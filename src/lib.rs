@@ -33,6 +33,7 @@ pub struct GLSceneRenderer {
     pending_batches: Vec<RenderBatch>
 }
 impl GLSceneRenderer {
+    /// Creates a new OpenGL scene renderer
     pub fn new() -> GLSceneRenderer {
         GLSceneRenderer {
             pending_meshes: vec!(),
@@ -40,23 +41,27 @@ impl GLSceneRenderer {
         }
     }
 
+    /// Renders a scene node
     fn render_scene_node(&mut self, scene_node: &SceneNode) {
         match scene_node.value() {
-            NodeValue::RectangleNode(rectangle) => self.render_rectangle(rectangle),
+            NodeValue::RectangleNode(rectangle) => self.render_rectangle_node(rectangle),
             _ => println!("Node value of {} isn't renderable", scene_node.identifier())
         }
     }
 
+    /// Render the pending meshes
     pub fn render(&mut self) {
         self.sort_meshes();
         self.batch_meshes();
         self.render_batches();
     }
 
+    /// Sorts the meshes in order to batch them
     fn sort_meshes(&mut self) {
         // TODO
     }
 
+    /// Batches the meshes together
     fn batch_meshes(&mut self) {
         for mesh in self.pending_meshes.iter() {
            // TODO
@@ -77,6 +82,7 @@ impl GLSceneRenderer {
         self.pending_meshes.clear();
     }
 
+    /// Renders the batches of meshes
     fn render_batches(&mut self) {
         for batch in self.pending_batches.iter_mut() {
             batch.render();
@@ -84,8 +90,9 @@ impl GLSceneRenderer {
 
         self.pending_batches.clear();
     }
-
-    fn render_rectangle(&mut self, rectangle: &tuber::graphics::Rectangle) {
+    
+    /// Renders a rectangle node
+    fn render_rectangle_node(&mut self, rectangle: &tuber::graphics::Rectangle) {
         let mut mesh = Mesh::new();
         let indices = [0, 1, 2, 2, 0, 3];
         let vertices = [
