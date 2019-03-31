@@ -50,6 +50,7 @@ impl GLSceneRenderer {
     fn render_scene_node(&mut self, scene_node: &SceneNode) {
         match scene_node.value() {
             NodeValue::RectangleNode(rectangle) => self.render_rectangle_node(rectangle),
+            NodeValue::SpriteNode(sprite) => self.render_sprite_node(sprite),
             _ => println!("Node value of {} isn't renderable", scene_node.identifier())
         }
     }
@@ -98,13 +99,35 @@ impl GLSceneRenderer {
     
     /// Renders a rectangle node
     fn render_rectangle_node(&mut self, rectangle: &tuber::graphics::Rectangle) {
-        let mut mesh = Mesh::new();
+        let mut mesh = Mesh::new(MeshAttributes::defaults());
+
+        let c = rectangle.color();
+        let indices = [0, 1, 2, 2, 0, 3];
+        let vertices = [
+            Vertex::with_values((0.0, 0.0, 0.0), (c.0, c.1, c.2), (0.0, 0.0)),
+            Vertex::with_values((0.0, rectangle.height(), 0.0), (c.0, c.1, c.2), (0.0, 1.0)),
+            Vertex::with_values((rectangle.width(), rectangle.height(), 0.0), (c.0, c.1, c.2), (1.0, 1.0)),
+            Vertex::with_values((rectangle.width(), 0.0, 0.0), (c.0, c.1, c.2), (1.0, 0.0))
+        ];
+
+        mesh.add_vertices(&vertices);
+        mesh.add_indices(&indices);
+
+        self.pending_meshes.push(mesh);
+    }
+
+    fn render_sprite_node(&mut self, sprite: &tuber::graphics::Sprite) {
+        let mesh_attributes = MeshAttributes::new()
+            .texture(sprite.texture_identifier())
+            .build();
+        let mut mesh = Mesh::new(mesh_attributes);
+       
         let indices = [0, 1, 2, 2, 0, 3];
         let vertices = [
             Vertex::with_values((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.0, 0.0)),
-            Vertex::with_values((0.0, rectangle.height(), 0.0), (1.0, 1.0, 1.0), (0.0, 1.0)),
-            Vertex::with_values((rectangle.width(), rectangle.height(), 0.0), (1.0, 1.0, 1.0), (1.0, 1.0)),
-            Vertex::with_values((rectangle.width(), 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0))
+            Vertex::with_values((0.0, sprite.height(), 0.0), (1.0, 1.0, 1.0), (0.0, 1.0)),
+            Vertex::with_values((sprite.width(), sprite.height(), 0.0), (1.0, 1.0, 1.0), (1.0, 1.0)),
+            Vertex::with_values((sprite.width(), 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0))
         ];
 
         mesh.add_vertices(&vertices);
@@ -137,53 +160,59 @@ impl SceneRenderer for GLSceneRenderer {
     }
 }
 
-/// Builder for RenderBatchConfiguration
+/// Builder for MeshAttributes
 ///
 /// # Examples
 ///
 /// ```
-/// use tuber_graphics_opengl::RenderBatchConfigurationBuilder;
+/// use tuber_graphics_opengl::MeshAttributesBuilder;
 ///
-/// let mut builder = RenderBatchConfigurationBuilder::new()
+/// let mut builder = MeshAttributesBuilder::new()
 ///     .texture("textureA".into());
 /// let configuration = builder.build();
 /// assert_eq!(configuration.texture_identifier(), "textureA");
 /// ```
-pub struct RenderBatchConfigurationBuilder {
-    texture_identifier: String
+pub struct MeshAttributesBuilder {
+    texture_identifier: Option<String>
 }
 
-impl RenderBatchConfigurationBuilder {
-    pub fn new() -> RenderBatchConfigurationBuilder {
-        RenderBatchConfigurationBuilder { 
-            texture_identifier: "default".to_string()
+impl MeshAttributesBuilder {
+    pub fn new() -> MeshAttributesBuilder {
+        MeshAttributesBuilder { 
+            texture_identifier: None
         }
     }
 
-    pub fn texture(mut self, texture_identifier: String) 
-        -> RenderBatchConfigurationBuilder {
-        self.texture_identifier = texture_identifier;
+    pub fn texture(mut self, texture_identifier: &str) 
+        -> MeshAttributesBuilder {
+        self.texture_identifier = Some(texture_identifier.into());
         self
     }
 
-    pub fn build(self) -> RenderBatchConfiguration {
-        RenderBatchConfiguration {
+    pub fn build(self) -> MeshAttributes {
+        MeshAttributes {
             texture_identifier: self.texture_identifier
         }
     }
 }
 
-#[derive(Eq, PartialEq)]
-pub struct RenderBatchConfiguration {
-    texture_identifier: String
+#[derive(Eq, PartialEq, Clone)]
+pub struct MeshAttributes {
+    texture_identifier: Option<String>
 }
 
-impl RenderBatchConfiguration {
-    pub fn new() -> RenderBatchConfigurationBuilder {
-        RenderBatchConfigurationBuilder::new()
+impl MeshAttributes {
+    pub fn new() -> MeshAttributesBuilder {
+        MeshAttributesBuilder::new()
     }
 
-    pub fn texture_identifier(&self) -> &str {
+    pub fn defaults() -> MeshAttributes {
+        MeshAttributes {
+            texture_identifier: None
+        }
+    }
+
+    pub fn texture_identifier(&self) -> &Option<String> {
         &self.texture_identifier
     }
 }
@@ -301,16 +330,16 @@ impl RenderBatch {
 pub struct Mesh {
     vertices: Vec<Vertex>,
     indices: Vec<VertexIndex>,
-    texture_identifier: String
+    attributes: MeshAttributes
 }
 
 impl Mesh {
     /// Creates a new, empty mesh
-    pub fn new() -> Mesh {
+    pub fn new(attributes: MeshAttributes) -> Mesh {
         Mesh {
             vertices: vec!(),
             indices: vec!(),
-            texture_identifier: "default".to_string()
+            attributes
         }
     }
 
@@ -358,8 +387,8 @@ impl Mesh {
         &self.indices
     }
 
-    pub fn texture_identiifer(&self) -> &str {
-        &self.texture_identifier
+    pub fn attributes(&self) -> &MeshAttributes {
+        &self.attributes
     }
 }
 
