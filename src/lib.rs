@@ -34,15 +34,15 @@ type VertexIndex = gl::types::GLuint;
 pub struct GLSceneRenderer {
     pending_meshes: Vec<Mesh>,
     pending_batches: Vec<RenderBatch>,
-   // texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>
+    texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>
 }
 impl GLSceneRenderer {
     /// Creates a new OpenGL scene renderer
-    pub fn new(/*texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>*/) -> GLSceneRenderer {
+    pub fn new(texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>) -> GLSceneRenderer {
         GLSceneRenderer {
             pending_meshes: vec!(),
             pending_batches: vec!(),
-            //texture_store
+            texture_store
         }
     }
 
@@ -77,11 +77,18 @@ impl GLSceneRenderer {
            //   create new batch
             
             if self.pending_batches.len() == 0 {
-                let mut render_batch = RenderBatch::new();
+                let mut render_batch = RenderBatch::new(mesh.attributes().clone());
                 render_batch.add_mesh(mesh.clone());
                 self.pending_batches.push(render_batch);
             } else {
-                self.pending_batches.last_mut().unwrap().add_mesh(mesh.clone());
+                if self.pending_batches.last().unwrap().mesh_attributes() != mesh.attributes() {
+                    let mut render_batch = RenderBatch::new(mesh.attributes().clone());
+                    render_batch.add_mesh(mesh.clone());
+                    self.pending_batches.push(render_batch);
+                }
+                else {
+                    self.pending_batches.last_mut().unwrap().add_mesh(mesh.clone());
+                }
             }
         }
 
@@ -90,7 +97,16 @@ impl GLSceneRenderer {
 
     /// Renders the batches of meshes
     fn render_batches(&mut self) {
+        println!("Batch to be rendered: {}", self.pending_batches.len());
         for batch in self.pending_batches.iter_mut() {
+            let attributes = batch.mesh_attributes();
+
+            if let Some(texture_identifier) = attributes.texture_identifier() {
+                let texture_store = self.texture_store.borrow();
+                let texture = texture_store.get(texture_identifier).unwrap();
+                texture.bind();
+            }
+
             batch.render();
         }
 
@@ -215,6 +231,7 @@ impl MeshAttributes {
 
 /// Batch of meshes with the same attributes
 struct RenderBatch {
+    mesh_attributes: MeshAttributes,
     vao: opengl::VertexArrayObject,
     vbo: opengl::BufferObject,
     ebo: opengl::BufferObject,
@@ -226,7 +243,7 @@ struct RenderBatch {
 impl RenderBatch {
     const MAX_BATCH_SIZE: usize = 1000;
 
-    pub fn new() -> RenderBatch {
+    pub fn new(mesh_attributes: MeshAttributes) -> RenderBatch {
         let vao = opengl::VertexArrayObject::new();
         let vbo = opengl::BufferObject::with_size(gl::ARRAY_BUFFER,
                                                   RenderBatch::MAX_BATCH_SIZE);
@@ -250,6 +267,7 @@ impl RenderBatch {
         vao.unbind();
 
         RenderBatch {
+            mesh_attributes,
             vao,
             vbo,
             ebo,
@@ -257,6 +275,10 @@ impl RenderBatch {
             index_count: 0,
             last_index: 0
         }
+    }
+
+    pub fn mesh_attributes(&self) -> &MeshAttributes {
+        &self.mesh_attributes
     }
 
     pub fn add_mesh(&mut self, mesh: Mesh) {
