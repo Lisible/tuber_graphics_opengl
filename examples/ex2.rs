@@ -32,7 +32,7 @@ use tuber::input::keyboard;
 use tuber_window_sdl2::SDLWindow;
 use tuber_graphics_opengl::{opengl, GLSceneRenderer};
 
-use tuber::resources::ResourceLoader;
+use tuber::resources::{ResourceLoader, ResourceStore};
 use tuber::scene::{SceneGraph, SceneNode, NodeValue};
 use tuber::graphics::{scene_renderer::SceneRenderer, Sprite};
 
@@ -72,6 +72,9 @@ fn main() -> Result<(), String> {
     let mut texture_loader = GLTextureLoader{};
     let texture = texture_loader.load("64x64")
         .expect("Couldn't load texture");
+
+    let mut texture_store = GLTextureStore::new();
+    texture_store.store("64x64", texture);
     
     let mut scene = SceneGraph::new();
     let sprite = SceneNode::new("first_sprite", NodeValue::SpriteNode(
@@ -97,7 +100,7 @@ fn main() -> Result<(), String> {
         
         opengl::clear(gl::COLOR_BUFFER_BIT); 
   
-        texture.bind();
+        texture_store.get("64x64").unwrap().bind();
         scene_renderer.render_scene(&scene);
 
         window.display();
