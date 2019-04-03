@@ -117,7 +117,7 @@ impl GLSceneRenderer {
     }
 
     fn render_sprite_node(&mut self, sprite: &tuber::graphics::Sprite) {
-        let mesh_attributes = MeshAttributes::new()
+        let mesh_attributes = MeshAttributesBuilder::new()
             .texture(sprite.texture_identifier())
             .build();
         let mut mesh = Mesh::new(mesh_attributes);
@@ -202,10 +202,6 @@ pub struct MeshAttributes {
 }
 
 impl MeshAttributes {
-    pub fn new() -> MeshAttributesBuilder {
-        MeshAttributesBuilder::new()
-    }
-
     pub fn defaults() -> MeshAttributes {
         MeshAttributes {
             texture_identifier: None

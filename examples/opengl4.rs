@@ -30,7 +30,7 @@ use tuber::window::{Window, WindowEvent};
 use tuber::input::keyboard;
 
 use tuber_window_sdl2::SDLWindow;
-use tuber_graphics_opengl::{opengl, Vertex, Mesh};
+use tuber_graphics_opengl::{opengl, Vertex, Mesh, MeshAttributes};
 
 fn main() -> Result<(), String> {
     // Setup SDL
@@ -77,7 +77,7 @@ fn main() -> Result<(), String> {
         1, 2, 3
     ];
 
-    let mut mesh = Mesh::new();
+    let mut mesh = Mesh::new(MeshAttributes::defaults());
     mesh.add_vertices(&vertices);
     mesh.add_indices(&indices);
 
@@ -145,7 +145,7 @@ fn load_texture() -> Result<opengl::Texture, String> {
     use sdl2::image::LoadSurface;
     use sdl2::surface::Surface;
 
-    let surface = Surface::from_file(Path::new("data/64x64.png"))?;
+    let surface = Surface::from_file(Path::new("data/textures/64x64.png"))?;
     let texture = opengl::Texture::new(gl::TEXTURE_2D);
 
 

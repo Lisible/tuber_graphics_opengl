@@ -80,9 +80,9 @@ fn main() -> Result<(), String> {
         1, 2, 3
     ];
 
-    let mut vao = opengl::VertexArrayObject::new();
-    let mut vbo = opengl::BufferObject::new(gl::ARRAY_BUFFER);
-    let mut ebo = opengl::BufferObject::new(gl::ELEMENT_ARRAY_BUFFER);
+    let vao = opengl::VertexArrayObject::new();
+    let vbo = opengl::BufferObject::new(gl::ARRAY_BUFFER);
+    let ebo = opengl::BufferObject::new(gl::ELEMENT_ARRAY_BUFFER);
 
     vbo.bind();
     vbo.set_data(vertices.len() * std::mem::size_of::<Vertex>(),
