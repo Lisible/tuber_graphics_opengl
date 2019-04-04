@@ -34,7 +34,7 @@ use tuber_graphics_opengl::{opengl, GLSceneRenderer};
 
 use tuber::resources::{ResourceLoader, ResourceStore};
 use tuber::scene::{SceneGraph, SceneNode, NodeValue};
-use tuber::graphics::{scene_renderer::SceneRenderer, Sprite};
+use tuber::graphics::{scene_renderer::SceneRenderer, Sprite, Line};
 
 fn main() -> Result<(), String> {
     // Setup SDL
@@ -91,6 +91,10 @@ fn main() -> Result<(), String> {
     let sprite3 = SceneNode::new("third_sprite", NodeValue::SpriteNode(
             Sprite::new(0.75, 0.75, "64x64".into())));
     scene.root_mut().add_child(sprite3);
+
+    let line = SceneNode::new("some_line", NodeValue::LineNode(
+            Line::new((0.0, -1.0, 0.0), (1.0, 1.0, 0.0), (1.0, 1.0, 1.0, 1.0))));
+    scene.root_mut().add_child(line);
 
     let mut scene_renderer = GLSceneRenderer::new(texture_store.clone());
 

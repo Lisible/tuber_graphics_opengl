@@ -50,6 +50,7 @@ impl GLSceneRenderer {
     fn render_scene_node(&mut self, scene_node: &SceneNode) {
         match scene_node.value() {
             NodeValue::RectangleNode(rectangle) => self.render_rectangle_node(rectangle),
+            NodeValue::LineNode(line) => self.render_line_node(line),
             NodeValue::SpriteNode(sprite) => self.render_sprite_node(sprite),
             _ => println!("Node value of {} isn't renderable", scene_node.identifier())
         }
@@ -121,6 +122,7 @@ impl GLSceneRenderer {
         self.pending_meshes.push(mesh);
     }
 
+    /// Renders a sprite node
     fn render_sprite_node(&mut self, sprite: &tuber::graphics::Sprite) {
         let mesh_attributes = MeshAttributesBuilder::new()
             .texture(sprite.texture_identifier())
@@ -133,6 +135,24 @@ impl GLSceneRenderer {
             Vertex::with_values((0.0, sprite.height(), 0.0), (1.0, 1.0, 1.0), (0.0, 1.0)),
             Vertex::with_values((sprite.width(), sprite.height(), 0.0), (1.0, 1.0, 1.0), (1.0, 1.0)),
             Vertex::with_values((sprite.width(), 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0))
+        ];
+
+        mesh.add_vertices(&vertices);
+        mesh.add_indices(&indices);
+
+        self.pending_meshes.push(mesh);
+    }
+
+    fn render_line_node(&mut self, line: &tuber::graphics::Line) {
+        let mesh_attributes = MeshAttributesBuilder::new()
+            .draw_mode(gl::LINES)
+            .build();
+        let mut mesh = Mesh::new(mesh_attributes);
+
+        let indices = [0, 1];
+        let vertices = [
+            Vertex::with_values(line.first_point(), (1.0, 1.0, 1.0), (0.0, 0.0)),
+            Vertex::with_values(line.second_point(), (1.0, 1.0, 1.0), (0.0, 0.0))
         ];
 
         mesh.add_vertices(&vertices);
@@ -181,13 +201,15 @@ impl SceneRenderer for GLSceneRenderer {
 /// };
 /// ```
 pub struct MeshAttributesBuilder {
-    texture_identifier: Option<String>
+    texture_identifier: Option<String>,
+    draw_mode: gl::types::GLenum
 }
 
 impl MeshAttributesBuilder {
     pub fn new() -> MeshAttributesBuilder {
         MeshAttributesBuilder { 
-            texture_identifier: None
+            texture_identifier: None,
+            draw_mode: gl::TRIANGLES
         }
     }
 
@@ -197,27 +219,40 @@ impl MeshAttributesBuilder {
         self
     }
 
+    pub fn draw_mode(mut self, draw_mode: gl::types::GLenum)
+        -> MeshAttributesBuilder {
+        self.draw_mode = draw_mode;
+        self
+    }
+
     pub fn build(self) -> MeshAttributes {
         MeshAttributes {
-            texture_identifier: self.texture_identifier
+            texture_identifier: self.texture_identifier,
+            draw_mode: self.draw_mode
         }
     }
 }
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct MeshAttributes {
-    texture_identifier: Option<String>
+    texture_identifier: Option<String>,
+    draw_mode: gl::types::GLenum
 }
 
 impl MeshAttributes {
     pub fn defaults() -> MeshAttributes {
         MeshAttributes {
-            texture_identifier: None
+            texture_identifier: None,
+            draw_mode: gl::TRIANGLES
         }
     }
 
     pub fn texture_identifier(&self) -> &Option<String> {
         &self.texture_identifier
+    }
+
+    pub fn draw_mode(&self) -> gl::types::GLenum {
+        self.draw_mode
     }
 }
 
@@ -328,7 +363,7 @@ impl RenderBatch {
     /// Renders the pending meshes
     pub fn render(&mut self) {
         self.vao.bind();
-        opengl::draw_elements(gl::TRIANGLES,
+        opengl::draw_elements(self.mesh_attributes.draw_mode(),
                           self.index_count as gl::types::GLsizei,
                           gl::UNSIGNED_INT,
                           std::ptr::null() as *const gl::types::GLvoid);
