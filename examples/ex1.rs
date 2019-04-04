@@ -75,7 +75,7 @@ fn main() -> Result<(), String> {
     let texture2 = texture_loader.load("64x64b")
         .expect("Couldn't load texture");
 
-    let mut texture_store = Rc::new(RefCell::new(GLTextureStore::new()));
+    let texture_store = Rc::new(RefCell::new(GLTextureStore::new()));
     texture_store.borrow_mut().store("64x64".into(), texture);
     texture_store.borrow_mut().store("64x64b".into(), texture2);
     
@@ -89,7 +89,7 @@ fn main() -> Result<(), String> {
     scene.root_mut().add_child(sprite2);
 
     let sprite3 = SceneNode::new("third_sprite", NodeValue::SpriteNode(
-            Sprite::new(0.75, 0.75, "64x64b".into())));
+            Sprite::new(0.75, 0.75, "64x64".into())));
     scene.root_mut().add_child(sprite3);
 
     let mut scene_renderer = GLSceneRenderer::new(texture_store.clone());

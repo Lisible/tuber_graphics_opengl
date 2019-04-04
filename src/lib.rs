@@ -64,31 +64,20 @@ impl GLSceneRenderer {
 
     /// Sorts the meshes in order to batch them
     fn sort_meshes(&mut self) {
-        // TODO
+        self.pending_meshes.sort_by_key(|mesh| mesh.attributes());
     }
 
     /// Batches the meshes together
     fn batch_meshes(&mut self) {
         for mesh in self.pending_meshes.iter() {
-           // TODO
-           // if mesh.attributes == pending_batches.last().attributes
-           //   add to current batch
-           // else
-           //   create new batch
-            
-            if self.pending_batches.len() == 0 {
+            if (self.pending_batches.len() == 0) || 
+                (self.pending_batches.last().unwrap().mesh_attributes() != mesh.attributes()) {
+                
                 let mut render_batch = RenderBatch::new(mesh.attributes().clone());
                 render_batch.add_mesh(mesh.clone());
                 self.pending_batches.push(render_batch);
             } else {
-                if self.pending_batches.last().unwrap().mesh_attributes() != mesh.attributes() {
-                    let mut render_batch = RenderBatch::new(mesh.attributes().clone());
-                    render_batch.add_mesh(mesh.clone());
-                    self.pending_batches.push(render_batch);
-                }
-                else {
-                    self.pending_batches.last_mut().unwrap().add_mesh(mesh.clone());
-                }
+                self.pending_batches.last_mut().unwrap().add_mesh(mesh.clone());
             }
         }
 
@@ -97,7 +86,7 @@ impl GLSceneRenderer {
 
     /// Renders the batches of meshes
     fn render_batches(&mut self) {
-        println!("Batch to be rendered: {}", self.pending_batches.len());
+        println!("Batches to be rendered: {}", self.pending_batches.len());
         for batch in self.pending_batches.iter_mut() {
             let attributes = batch.mesh_attributes();
 
@@ -215,7 +204,7 @@ impl MeshAttributesBuilder {
     }
 }
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct MeshAttributes {
     texture_identifier: Option<String>
 }
@@ -280,8 +269,8 @@ impl RenderBatch {
         }
     }
 
-    pub fn mesh_attributes(&self) -> &MeshAttributes {
-        &self.mesh_attributes
+    pub fn mesh_attributes(&self) -> MeshAttributes {
+        self.mesh_attributes.clone()
     }
 
     pub fn add_mesh(&mut self, mesh: Mesh) {
@@ -408,8 +397,8 @@ impl Mesh {
         &self.indices
     }
 
-    pub fn attributes(&self) -> &MeshAttributes {
-        &self.attributes
+    pub fn attributes(&self) -> MeshAttributes {
+        self.attributes.clone()
     }
 }
 
