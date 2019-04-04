@@ -186,7 +186,10 @@ impl SceneRenderer for GLSceneRenderer {
 /// let mut builder = MeshAttributesBuilder::new()
 ///     .texture("textureA".into());
 /// let configuration = builder.build();
-/// assert_eq!(configuration.texture_identifier(), "textureA");
+/// match configuration.texture_identifier() {
+///     Some(identifier) => assert_eq!(identifier, "textureA"),
+///     None => assert!(false)
+/// };
 /// ```
 pub struct MeshAttributesBuilder {
     texture_identifier: Option<String>
@@ -366,9 +369,9 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use tuber_graphics_opengl::{Mesh, Vertex};
+    /// use tuber_graphics_opengl::{Mesh, MeshAttributes, Vertex};
     ///
-    /// let mut mesh = Mesh::new();
+    /// let mut mesh = Mesh::new(MeshAttributes::defaults());
     /// assert_eq!(mesh.vertices().len(), 0);
     /// mesh.add_vertices(&[
     ///     Vertex::with_values((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0)),
@@ -386,9 +389,9 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use tuber_graphics_opengl::Mesh;
+    /// use tuber_graphics_opengl::{Mesh, MeshAttributes};
     ///
-    /// let mut mesh = Mesh::new();
+    /// let mut mesh = Mesh::new(MeshAttributes::defaults());
     /// assert_eq!(mesh.indices().len(), 0);
     /// mesh.add_indices(&[0, 1, 2, 2, 0, 3]);
     /// assert_eq!(mesh.indices().len(), 6);

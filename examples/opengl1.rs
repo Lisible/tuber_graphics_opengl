@@ -74,8 +74,8 @@ fn main() -> Result<(), String> {
         Vertex::with_values((0.0, 0.5, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0)),
     ];
 
-    let mut vao = opengl::VertexArrayObject::new();
-    let mut vbo = opengl::BufferObject::new(gl::ARRAY_BUFFER);
+    let vao = opengl::VertexArrayObject::new();
+    let vbo = opengl::BufferObject::new(gl::ARRAY_BUFFER);
 
     vbo.bind();
     vbo.set_data(vertices.len() * std::mem::size_of::<Vertex>(),

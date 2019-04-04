@@ -81,9 +81,9 @@ fn main() -> Result<(), String> {
     mesh.add_vertices(&vertices);
     mesh.add_indices(&indices);
 
-    let mut vao = opengl::VertexArrayObject::new();
-    let mut vbo = opengl::BufferObject::new(gl::ARRAY_BUFFER);
-    let mut ebo = opengl::BufferObject::new(gl::ELEMENT_ARRAY_BUFFER);
+    let vao = opengl::VertexArrayObject::new();
+    let vbo = opengl::BufferObject::new(gl::ARRAY_BUFFER);
+    let ebo = opengl::BufferObject::new(gl::ELEMENT_ARRAY_BUFFER);
 
     vbo.bind();
     vbo.set_data(mesh.vertices().len() * std::mem::size_of::<Vertex>(),
