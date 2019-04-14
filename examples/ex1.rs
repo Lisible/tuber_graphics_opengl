@@ -30,7 +30,7 @@ use tuber::window::{Window, WindowEvent};
 use tuber::input::keyboard;
 
 use tuber_window_sdl2::SDLWindow;
-use tuber_graphics_opengl::{opengl, GLSceneRenderer};
+use tuber_graphics_opengl::{opengl, GLSceneRenderer, font::Font};
 
 use tuber::resources::{ResourceLoader, ResourceStore};
 use tuber::scene::{SceneGraph, SceneNode, NodeValue};
@@ -96,7 +96,8 @@ fn main() -> Result<(), String> {
             Line::new((0.0, -1.0, 0.0), (1.0, 1.0, 0.0), (1.0, 1.0, 1.0, 1.0))));
     scene.root_mut().add_child(line);
 
-    let mut scene_renderer = GLSceneRenderer::new(texture_store.clone());
+    let font_store = Rc::new(RefCell::new(FontStore::new()));
+    let mut scene_renderer = GLSceneRenderer::new(texture_store.clone(), font_store.clone());
 
     opengl::set_viewport(0, 0, 800, 600);
     opengl::set_clear_color((0.3, 0.3, 0.5, 1.0));
@@ -116,6 +117,34 @@ fn main() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+pub struct FontStore {
+    fonts: std::collections::HashMap<String, Font>
+}
+
+impl FontStore {
+    pub fn new() -> FontStore {
+        FontStore {
+            fonts: std::collections::HashMap::new()
+        }
+    }
+}
+
+impl tuber::resources::ResourceStore<Font> for FontStore {
+    fn store(&mut self, resource_file_path: String, value: Font) {
+        self.fonts.insert(resource_file_path, value);
+    }
+    fn remove(&mut self, resource_file_path: &str) {
+        self.fonts.remove(resource_file_path);
+    }
+
+    fn get(&self, resource_file_path: &str) -> Option<&Font> {
+        self.fonts.get(resource_file_path)
+    }
+    fn get_mut(&mut self, resource_file_path: &str) -> Option<&mut Font> {
+        self.fonts.get_mut(resource_file_path)
+    }
 }
 
 pub struct GLTextureStore {

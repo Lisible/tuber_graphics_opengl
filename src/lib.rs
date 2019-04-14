@@ -158,7 +158,7 @@ impl GLSceneRenderer {
         let font = font_store.get(text.font_identifier()).unwrap();
 
         let mut cursor_offset = 0.0;
-        for c in text.text() {
+        for c in text.text().chars() {
             let character_metadata = font.metadata().character(c).unwrap();
 
             let mesh_attributes = MeshAttributesBuilder::new()
