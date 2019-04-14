@@ -473,14 +473,6 @@ impl FontCharacterMetadata {
     pub fn x_advance(&self) -> f32 {
         self.x_advance
     }
-
-    pub fn page(&self) -> usize {
-        self.page
-    }
-
-    pub fn channel(&self) -> u8 {
-        self.channel
-    }
 }
 
 #[derive(Clone)]
