@@ -29,20 +29,25 @@ use tuber::resources::ResourceStore;
 use tuber::scene::{SceneGraph, SceneNode, NodeValue};
 
 pub mod opengl;
+pub mod font;
+
 type VertexIndex = gl::types::GLuint;
 
 pub struct GLSceneRenderer {
     pending_meshes: Vec<Mesh>,
     pending_batches: Vec<RenderBatch>,
-    texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>
+    texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>,
+    font_store: Rc<RefCell<ResourceStore<font::Font>>>
 }
 impl GLSceneRenderer {
     /// Creates a new OpenGL scene renderer
-    pub fn new(texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>) -> GLSceneRenderer {
+    pub fn new(texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>,
+               font_store: Rc<RefCell<ResourceStore<font::Font>>>) -> GLSceneRenderer {
         GLSceneRenderer {
             pending_meshes: vec!(),
             pending_batches: vec!(),
-            texture_store
+            texture_store,
+            font_store
         }
     }
 
@@ -52,6 +57,7 @@ impl GLSceneRenderer {
             NodeValue::RectangleNode(rectangle) => self.render_rectangle_node(rectangle),
             NodeValue::LineNode(line) => self.render_line_node(line),
             NodeValue::SpriteNode(sprite) => self.render_sprite_node(sprite),
+            NodeValue::TextNode(text) => self.render_text_node(text),
             _ => println!("Node value of {} isn't renderable", scene_node.identifier())
         }
     }
@@ -91,7 +97,13 @@ impl GLSceneRenderer {
         for batch in self.pending_batches.iter_mut() {
             let attributes = batch.mesh_attributes();
 
-            if let Some(texture_identifier) = attributes.texture_identifier() {
+            if let Some(font_identifier) = attributes.font_identifier() {
+                let font_store = self.font_store.borrow();
+                let font = font_store.get(font_identifier).unwrap();
+                opengl::enable_font_blending();
+                font.bind_texture();
+            }
+            else if let Some(texture_identifier) = attributes.texture_identifier() {
                 let texture_store = self.texture_store.borrow();
                 let texture = texture_store.get(texture_identifier).unwrap();
                 texture.bind();
@@ -102,8 +114,7 @@ impl GLSceneRenderer {
 
         self.pending_batches.clear();
     }
-    
-    /// Renders a rectangle node
+
     fn render_rectangle_node(&mut self, rectangle: &tuber::graphics::Rectangle) {
         let mut mesh = Mesh::new(MeshAttributes::defaults());
 
@@ -122,7 +133,6 @@ impl GLSceneRenderer {
         self.pending_meshes.push(mesh);
     }
 
-    /// Renders a sprite node
     fn render_sprite_node(&mut self, sprite: &tuber::graphics::Sprite) {
         let mesh_attributes = MeshAttributesBuilder::new()
             .texture(sprite.texture_identifier())
@@ -141,6 +151,47 @@ impl GLSceneRenderer {
         mesh.add_indices(&indices);
 
         self.pending_meshes.push(mesh);
+    }
+
+    fn render_text_node(&mut self, text: &tuber::graphics::Text) {
+        let font_store = self.font_store.borrow();
+        let font = font_store.get(text.font_identifier()).unwrap();
+
+        let mut cursor_offset = 0.0;
+        for c in text.text() {
+            let character_metadata = font.metadata().character(c).unwrap();
+
+            let mesh_attributes = MeshAttributesBuilder::new()
+                .font(text.font_identifier())
+                .build();
+
+
+            let tw = 1024.0;
+            let th = 1024.0;
+            let x = character_metadata.x_coordinate() / tw;
+            let y = -character_metadata.y_coordinate() / th;
+            let y_off = -character_metadata.y_offset() / th;
+            let w = character_metadata.width() / tw;
+            let h = -character_metadata.height() / th;
+
+
+            println!("x: {}, y: {}, w: {}, h: {}", x, y, w, h);
+
+            let mut mesh = Mesh::new(mesh_attributes);
+            let indices = [0, 1, 2, 2, 0, 3];
+            let vertices = [
+                Vertex::with_values((cursor_offset, y_off, 0.0), (1.0, 1.0, 1.0), (x, y)),
+                Vertex::with_values((cursor_offset, y_off + h, 0.0), (1.0, 1.0, 1.0), (x, y + h)),
+                Vertex::with_values((cursor_offset + w, y_off + h, 0.0), (1.0, 1.0, 1.0), (x + w, y + h)),
+                Vertex::with_values((cursor_offset + w, y_off, 0.0), (1.0, 1.0, 1.0), (x + w, y))
+            ];
+
+            cursor_offset += w;
+
+            mesh.add_vertices(&vertices);
+            mesh.add_indices(&indices);
+            self.pending_meshes.push(mesh);
+        }
     }
 
     fn render_line_node(&mut self, line: &tuber::graphics::Line) {
@@ -202,6 +253,7 @@ impl SceneRenderer for GLSceneRenderer {
 /// ```
 pub struct MeshAttributesBuilder {
     texture_identifier: Option<String>,
+    font_identifier: Option<String>,
     draw_mode: gl::types::GLenum
 }
 
@@ -209,6 +261,7 @@ impl MeshAttributesBuilder {
     pub fn new() -> MeshAttributesBuilder {
         MeshAttributesBuilder { 
             texture_identifier: None,
+            font_identifier: None,
             draw_mode: gl::TRIANGLES
         }
     }
@@ -216,6 +269,12 @@ impl MeshAttributesBuilder {
     pub fn texture(mut self, texture_identifier: &str) 
         -> MeshAttributesBuilder {
         self.texture_identifier = Some(texture_identifier.into());
+        self
+    }
+
+    pub fn font(mut self, font_identifier: &str)
+        -> MeshAttributesBuilder {
+        self.font_identifier = Some(font_identifier.into());
         self
     }
 
@@ -228,6 +287,7 @@ impl MeshAttributesBuilder {
     pub fn build(self) -> MeshAttributes {
         MeshAttributes {
             texture_identifier: self.texture_identifier,
+            font_identifier: self.font_identifier,
             draw_mode: self.draw_mode
         }
     }
@@ -236,6 +296,7 @@ impl MeshAttributesBuilder {
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct MeshAttributes {
     texture_identifier: Option<String>,
+    font_identifier: Option<String>,
     draw_mode: gl::types::GLenum
 }
 
@@ -243,12 +304,17 @@ impl MeshAttributes {
     pub fn defaults() -> MeshAttributes {
         MeshAttributes {
             texture_identifier: None,
+            font_identifier: None,
             draw_mode: gl::TRIANGLES
         }
     }
 
     pub fn texture_identifier(&self) -> &Option<String> {
         &self.texture_identifier
+    }
+
+    pub fn font_identifier(&self) -> &Option<String> {
+        &self.font_identifier
     }
 
     pub fn draw_mode(&self) -> gl::types::GLenum {
@@ -268,7 +334,7 @@ struct RenderBatch {
 }
 
 impl RenderBatch {
-    const MAX_BATCH_SIZE: usize = 1000;
+    const MAX_BATCH_SIZE: usize = 100000;
 
     pub fn new(mesh_attributes: MeshAttributes) -> RenderBatch {
         let vao = opengl::VertexArrayObject::new();
@@ -367,111 +433,6 @@ impl RenderBatch {
                           self.index_count as gl::types::GLsizei,
                           gl::UNSIGNED_INT,
                           std::ptr::null() as *const gl::types::GLvoid);
-    }
-}
-
-use std::collections::HashMap;
-
-pub struct Font {
-    metadata: FontMetadata,
-    texture: opengl::Texture
-}
-
-impl Font {
-    pub fn new(texture: opengl::Texture) -> Font {
-        Font {
-            metadata: FontMetadata::new(),
-            texture
-        }
-    }
-
-    pub fn add_character(&mut self, character: char,
-                         metadata: FontCharacterMetadata) {
-        self.metadata.add_character(character, metadata);
-    }
-
-    pub fn metadata(&self) -> &FontMetadata {
-        &self.metadata
-    }
-
-    pub fn bind_texture(&self) {
-        self.texture.bind();
-    }
-
-    pub fn unbind_texture(&self) {
-        self.texture.unbind();
-    }
-}
-
-pub struct FontMetadata {
-    characters: HashMap<char, FontCharacterMetadata>,
-}
-
-impl FontMetadata {
-    pub fn new() -> FontMetadata {
-        FontMetadata {
-            characters: HashMap::new()
-        }
-    }
-
-    pub fn add_character(&mut self, character: char,
-                         metadata: FontCharacterMetadata) {
-        self.characters.insert(character, metadata);
-    }
-
-    pub fn character(&self, character: char)  -> Option<&FontCharacterMetadata> {
-        self.characters.get(&character)
-    }
-}
-
-pub struct FontCharacterMetadata {
-    x_coordinate: f32,
-    y_coordinate: f32,
-    width: f32,
-    height: f32,
-    x_offset: f32,
-    y_offset: f32,
-    x_advance: f32
-}
-
-impl FontCharacterMetadata {
-    pub fn new(x_coordinate: f32, y_coordinate: f32, width: f32, height: f32,
-               x_offset: f32, y_offset: f32, x_advance: f32)
-        -> FontCharacterMetadata {
-        FontCharacterMetadata {
-            x_coordinate,
-            y_coordinate,
-            width,
-            height,
-            x_offset,
-            y_offset,
-            x_advance,
-        }
-    }
-
-    pub fn x_coordinate(&self) -> f32 {
-        self.x_coordinate
-    }
-    pub fn y_coordinate(&self) -> f32 {
-        self.y_coordinate
-    }
-
-    pub fn width(&self) -> f32 {
-        self.width
-    }
-    pub fn height(&self) -> f32 {
-        self.height
-    }
-
-    pub fn x_offset(&self) -> f32 {
-        self.x_offset
-    }
-    pub fn y_offset(&self) -> f32 {
-        self.y_offset
-    }
-
-    pub fn x_advance(&self) -> f32 {
-        self.x_advance
     }
 }
 

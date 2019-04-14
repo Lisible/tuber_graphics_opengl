@@ -7,6 +7,7 @@ layout (location = 2) in vec2 TextureCoordinates;
 out vec3 passed_Color;
 out vec2 passed_TextureCoordinates;
 
+
 void main()
 {
     gl_Position = vec4(Position, 1.0);
