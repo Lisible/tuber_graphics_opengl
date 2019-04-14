@@ -431,15 +431,13 @@ pub struct FontCharacterMetadata {
     height: f32,
     x_offset: f32,
     y_offset: f32,
-    x_advance: f32,
-    page: usize,
-    channel: u8
+    x_advance: f32
 }
 
 impl FontCharacterMetadata {
     pub fn new(x_coordinate: f32, y_coordinate: f32, width: f32, height: f32,
-               x_offset: f32, y_offset: f32, x_advance: f32, page: usize,
-               channel: u8) -> FontCharacterMetadata {
+               x_offset: f32, y_offset: f32, x_advance: f32)
+        -> FontCharacterMetadata {
         FontCharacterMetadata {
             x_coordinate,
             y_coordinate,
@@ -448,8 +446,6 @@ impl FontCharacterMetadata {
             x_offset,
             y_offset,
             x_advance,
-            page,
-            channel
         }
     }
 
