@@ -26,25 +26,38 @@ use crate::opengl;
 use std::collections::HashMap;
 
 pub struct Font {
-    metadata: FontMetadata,
-    texture: opengl::Texture
+    characters: HashMap<char, FontCharacter>,
+    texture: opengl::Texture,
+    horizontal_scale: f32,
+    vertical_scale: f32
 }
 
 impl Font {
-    pub fn new(texture: opengl::Texture) -> Font {
+    pub fn new(texture: opengl::Texture,
+               horizontal_scale: f32,
+               vertical_scale: f32) -> Font {
         Font {
-            metadata: FontMetadata::new(),
-            texture
+            characters: HashMap::new(),
+            texture,
+            horizontal_scale,
+            vertical_scale
         }
     }
 
     pub fn add_character(&mut self, character: char,
-                         metadata: FontCharacterMetadata) {
-        self.metadata.add_character(character, metadata);
+                         metadata: FontCharacter) {
+        self.characters.insert(character, metadata);
     }
 
-    pub fn metadata(&self) -> &FontMetadata {
-        &self.metadata
+    pub fn characters(&self) -> &HashMap<char, FontCharacter> {
+        &self.characters
+    }
+
+    pub fn horizontal_scale(&self) -> f32 {
+        self.horizontal_scale
+    }
+    pub fn vertical_scale(&self) -> f32 {
+        self.vertical_scale
     }
 
     pub fn bind_texture(&self) {
@@ -56,27 +69,7 @@ impl Font {
     }
 }
 
-pub struct FontMetadata {
-    characters: HashMap<char, FontCharacterMetadata>,
-}
-
-impl FontMetadata {
-    pub fn new() -> FontMetadata {
-        FontMetadata {
-            characters: HashMap::new()
-        }
-    }
-
-    pub fn add_character(&mut self, character: char,
-                         metadata: FontCharacterMetadata) {
-        self.characters.insert(character, metadata);
-    }
-    pub fn character(&self, character: char)  -> Option<&FontCharacterMetadata> {
-        self.characters.get(&character)
-    }
-}
-
-pub struct FontCharacterMetadata {
+pub struct FontCharacter {
     x_coordinate: f32,
     y_coordinate: f32,
     width: f32,
@@ -86,11 +79,11 @@ pub struct FontCharacterMetadata {
     x_advance: f32
 }
 
-impl FontCharacterMetadata {
+impl FontCharacter {
     pub fn new(x_coordinate: f32, y_coordinate: f32, width: f32, height: f32,
                x_offset: f32, y_offset: f32, x_advance: f32)
-               -> FontCharacterMetadata {
-        FontCharacterMetadata {
+               -> FontCharacter {
+        FontCharacter {
             x_coordinate,
             y_coordinate,
             width,

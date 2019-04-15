@@ -180,14 +180,18 @@ impl GLSceneRenderer {
 
         let mut cursor_offset = 0.0;
         for c in text.text().chars() {
-            let character_metadata = font.metadata().character(c).unwrap();
+            let character_metadata = if let Some(character) = font.characters().get(&c) {
+                character
+            } else {
+                continue;
+            };
 
             let mesh_attributes = MeshAttributesBuilder::new()
                 .font(text.font_identifier())
                 .build();
 
-            let tw = 1024.0;
-            let th = 1024.0;
+            let tw = font.horizontal_scale();
+            let th = font.vertical_scale();
             let x = character_metadata.x_coordinate() / tw;
             let y = -character_metadata.y_coordinate() / th;
             let y_off = character_metadata.y_offset();

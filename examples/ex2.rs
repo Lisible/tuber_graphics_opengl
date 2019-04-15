@@ -83,7 +83,7 @@ fn main() -> Result<(), String> {
     
     let mut scene = SceneGraph::new();
     let text = SceneNode::new("first_text", NodeValue::TextNode(
-            Text::new("CAELI j 音楽".into(), "default_font2".into())));
+            Text::new("CAELI 音楽".into(), "default_font2".into())));
     scene.root_mut().add_child(text);
 
     let mut scene_renderer = GLSceneRenderer::new(texture_store.clone(), font_store.clone());
@@ -155,11 +155,20 @@ impl BitmapFontLoader {
         };
 
         let page = bmfont.pages.get(0).unwrap();
+        let common_details = bmfont.common_details;
+
+
+        let (horizontal_scale, vertical_scale) = if let Some(details) = common_details {
+            (details.scale_w as f32, details.scale_h as f32)
+        } else {
+            return Err("Font scale not found".into());
+        };
+
         let texture = self.texture_loader.load_texture(page.image_path.to_str().unwrap())?;
-        let mut font = Font::new(texture);
+        let mut font = Font::new(texture, horizontal_scale, vertical_scale);
 
         for (char_id, character) in bmfont.chars {
-            let character_metadata = FontCharacterMetadata::new(
+            let character_metadata = FontCharacter::new(
                 character.x as f32,
                 character.y as f32,
                 character.width as f32,
