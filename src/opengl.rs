@@ -268,7 +268,8 @@ impl ShaderProgram {
 
     pub fn set_uniform_mat4(&mut self, uniform: &str, uniform_value: nalgebra_glm::Mat4) {
         unsafe {
-            let location = gl::GetUniformLocation(self.identifier, uniform.as_ptr() as *const gl::types::GLchar);
+            let uniform_string = CString::new(uniform).unwrap();
+            let location = gl::GetUniformLocation(self.identifier, uniform_string.as_ptr());
             gl::UniformMatrix4fv(location, 1, gl::FALSE, (&nalgebra_glm::value_ptr(&uniform_value)).as_ptr());
         }
     }

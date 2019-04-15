@@ -70,7 +70,7 @@ fn main() -> Result<(), String> {
         &[vertex_shader, fragment_shader]
     )?;
 
-    let transform = nalgebra_glm::identity();
+    let transform = nalgebra_glm::ortho(0.0, 800.0, 600.0, 0.0, 0.0, 100.0);
     shader_program.use_program();
     shader_program.set_uniform_mat4("transform", transform);
     let texture_store = Rc::new(RefCell::new(GLTextureStore::new()));
@@ -83,7 +83,7 @@ fn main() -> Result<(), String> {
     
     let mut scene = SceneGraph::new();
     let text = SceneNode::new("first_text", NodeValue::TextNode(
-            Text::new("CHUNITHM 2 音楽".into(), "default_font2".into())));
+            Text::new("CAELI j 音楽".into(), "default_font2".into())));
     scene.root_mut().add_child(text);
 
     let mut scene_renderer = GLSceneRenderer::new(texture_store.clone(), font_store.clone());
@@ -149,13 +149,11 @@ impl BitmapFontLoader {
 
     fn load_font(&mut self, font_file_path: &str)
         -> Result<Font, String> {
-        println!("{}", font_file_path);
         let bmfont = match BMFont::from_path(&Format::BMFont, font_file_path) {
             Ok(bmfont) => bmfont,
             Err(_) => panic!("Error loading font")
         };
 
-        println!("bmfont: {}", bmfont);
         let page = bmfont.pages.get(0).unwrap();
         let texture = self.texture_loader.load_texture(page.image_path.to_str().unwrap())?;
         let mut font = Font::new(texture);

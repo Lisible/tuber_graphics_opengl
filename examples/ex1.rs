@@ -63,11 +63,12 @@ fn main() -> Result<(), String> {
         Path::new("data/textured.frag"),
         gl::FRAGMENT_SHADER)?;
 
-    let shader_program = opengl::ShaderProgram::from_shaders(
+    let mut shader_program = opengl::ShaderProgram::from_shaders(
         &[vertex_shader, fragment_shader]
     )?;
 
     shader_program.use_program();
+    shader_program.set_uniform_mat4("transform", nalgebra_glm::identity());
 
     let mut texture_loader = GLTextureLoader{};
     let texture = texture_loader.load("64x64")

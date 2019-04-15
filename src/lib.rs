@@ -78,9 +78,14 @@ impl GLSceneRenderer {
     fn batch_meshes(&mut self) {
         for mesh in self.pending_meshes.iter() {
             if (self.pending_batches.len() == 0) || 
-                (self.pending_batches.last().unwrap().mesh_attributes() != mesh.attributes()) {
+                (self.pending_batches.last().unwrap().mesh_attributes() != mesh.attributes()) ||
+                (!self.pending_batches.last().unwrap().can_mesh_fit(&mesh)){
                 
                 let mut render_batch = RenderBatch::new(mesh.attributes().clone());
+                if !render_batch.can_mesh_fit(&mesh) {
+                    panic!("Mesh too big for a batch");
+                }
+
                 render_batch.add_mesh(mesh.clone());
                 self.pending_batches.push(render_batch);
             } else {
@@ -121,10 +126,18 @@ impl GLSceneRenderer {
         let c = rectangle.color();
         let indices = [0, 1, 2, 2, 0, 3];
         let vertices = [
-            Vertex::with_values((0.0, 0.0, 0.0), (c.0, c.1, c.2), (0.0, 0.0)),
-            Vertex::with_values((0.0, rectangle.height(), 0.0), (c.0, c.1, c.2), (0.0, 1.0)),
-            Vertex::with_values((rectangle.width(), rectangle.height(), 0.0), (c.0, c.1, c.2), (1.0, 1.0)),
-            Vertex::with_values((rectangle.width(), 0.0, 0.0), (c.0, c.1, c.2), (1.0, 0.0))
+            Vertex::with_values((0.0, 0.0, 0.0),
+                                (c.0, c.1, c.2),
+                                (0.0, 0.0)),
+            Vertex::with_values((0.0, rectangle.height(), 0.0),
+                                (c.0, c.1, c.2),
+                                (0.0, 1.0)),
+            Vertex::with_values((rectangle.width(), rectangle.height(), 0.0),
+                                (c.0, c.1, c.2),
+                                (1.0, 1.0)),
+            Vertex::with_values((rectangle.width(), 0.0, 0.0),
+                                (c.0, c.1, c.2),
+                                (1.0, 0.0))
         ];
 
         mesh.add_vertices(&vertices);
@@ -141,10 +154,18 @@ impl GLSceneRenderer {
        
         let indices = [0, 1, 2, 2, 0, 3];
         let vertices = [
-            Vertex::with_values((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.0, 0.0)),
-            Vertex::with_values((0.0, sprite.height(), 0.0), (1.0, 1.0, 1.0), (0.0, 1.0)),
-            Vertex::with_values((sprite.width(), sprite.height(), 0.0), (1.0, 1.0, 1.0), (1.0, 1.0)),
-            Vertex::with_values((sprite.width(), 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0))
+            Vertex::with_values((0.0, 0.0, 0.0),
+                                (1.0, 1.0, 1.0),
+                                (0.0, 0.0)),
+            Vertex::with_values((0.0, sprite.height(), 0.0),
+                                (1.0, 1.0, 1.0),
+                                (0.0, 1.0)),
+            Vertex::with_values((sprite.width(), sprite.height(), 0.0),
+                                (1.0, 1.0, 1.0),
+                                (1.0, 1.0)),
+            Vertex::with_values((sprite.width(), 0.0, 0.0),
+                                (1.0, 1.0, 1.0),
+                                (1.0, 0.0))
         ];
 
         mesh.add_vertices(&vertices);
@@ -165,25 +186,29 @@ impl GLSceneRenderer {
                 .font(text.font_identifier())
                 .build();
 
-
             let tw = 1024.0;
             let th = 1024.0;
             let x = character_metadata.x_coordinate() / tw;
             let y = -character_metadata.y_coordinate() / th;
-            let y_off = -character_metadata.y_offset() / th;
-            let w = character_metadata.width() / tw;
-            let h = -character_metadata.height() / th;
-
-
-            println!("x: {}, y: {}, w: {}, h: {}", x, y, w, h);
+            let y_off = character_metadata.y_offset();
+            let w = character_metadata.width();
+            let h = character_metadata.height();
 
             let mut mesh = Mesh::new(mesh_attributes);
             let indices = [0, 1, 2, 2, 0, 3];
             let vertices = [
-                Vertex::with_values((cursor_offset, y_off, 0.0), (1.0, 1.0, 1.0), (x, y)),
-                Vertex::with_values((cursor_offset, y_off + h, 0.0), (1.0, 1.0, 1.0), (x, y + h)),
-                Vertex::with_values((cursor_offset + w, y_off + h, 0.0), (1.0, 1.0, 1.0), (x + w, y + h)),
-                Vertex::with_values((cursor_offset + w, y_off, 0.0), (1.0, 1.0, 1.0), (x + w, y))
+                Vertex::with_values((cursor_offset, y_off, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x, y)),
+                Vertex::with_values((cursor_offset, y_off + h, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x, y - h / th)),
+                Vertex::with_values((cursor_offset + w, y_off + h, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x + w / tw, y - h / th)),
+                Vertex::with_values((cursor_offset + w, y_off, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x + w / tw, y))
             ];
 
             cursor_offset += w;
@@ -334,7 +359,7 @@ struct RenderBatch {
 }
 
 impl RenderBatch {
-    const MAX_BATCH_SIZE: usize = 100000;
+    const MAX_BATCH_SIZE: usize = 4000000;
 
     pub fn new(mesh_attributes: MeshAttributes) -> RenderBatch {
         let vao = opengl::VertexArrayObject::new();
@@ -374,14 +399,24 @@ impl RenderBatch {
         self.mesh_attributes.clone()
     }
 
+    pub fn can_mesh_fit(&self, mesh: &Mesh) -> bool {
+        let mesh_vertex_count = mesh.vertices().len();
+        let vertex_size = std::mem::size_of::<Vertex>();
+
+        self.vertex_count * vertex_size + mesh_vertex_count * vertex_size
+            < RenderBatch::MAX_BATCH_SIZE
+    }
+
     pub fn add_mesh(&mut self, mesh: Mesh) {
         let mesh_vertex_count = mesh.vertices().len();
         let mesh_index_count = mesh.indices().len();
+        let vertex_size = std::mem::size_of::<Vertex>();
+        let index_size = std::mem::size_of::<gl::types::GLuint>();
 
         self.vbo.bind();
         let mut vertex_buffer_pointer = self.vbo
-            .map_buffer_range(self.vertex_count * std::mem::size_of::<Vertex>(), 
-                              mesh_vertex_count * std::mem::size_of::<Vertex>(), 
+            .map_buffer_range(self.vertex_count * vertex_size,
+                              mesh_vertex_count * vertex_size,
                               gl::MAP_WRITE_BIT) as *mut Vertex;
         unsafe {
             for vertex in mesh.vertices().iter() {
@@ -395,8 +430,8 @@ impl RenderBatch {
 
         self.ebo.bind();
         let mut index_buffer_pointer = self.ebo
-            .map_buffer_range(self.index_count * std::mem::size_of::<gl::types::GLuint>(),
-                              mesh_index_count * std::mem::size_of::<gl::types::GLuint>(),
+            .map_buffer_range(self.index_count * index_size,
+                              mesh_index_count * index_size,
                               gl::MAP_WRITE_BIT) as *mut gl::types::GLuint;
 
         unsafe {
@@ -409,8 +444,6 @@ impl RenderBatch {
                 };
 
                 index_buffer_pointer.write(*index + index_offset as u32);
-                dbg!(*index + index_offset as u32);
-
                 if *index + index_offset as u32 > self.last_index as u32 {
                     self.last_index = (*index + index_offset as u32) as usize;
                 }

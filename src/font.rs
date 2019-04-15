@@ -71,7 +71,6 @@ impl FontMetadata {
                          metadata: FontCharacterMetadata) {
         self.characters.insert(character, metadata);
     }
-
     pub fn character(&self, character: char)  -> Option<&FontCharacterMetadata> {
         self.characters.get(&character)
     }
