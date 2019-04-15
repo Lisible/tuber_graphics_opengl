@@ -30,11 +30,14 @@ use tuber::window::{Window, WindowEvent};
 use tuber::input::keyboard;
 
 use tuber_window_sdl2::SDLWindow;
-use tuber_graphics_opengl::{opengl, GLSceneRenderer, font::Font};
+use tuber_graphics_opengl::{opengl, GLSceneRenderer, font::*};
 
 use tuber::resources::{ResourceLoader, ResourceStore};
 use tuber::scene::{SceneGraph, SceneNode, NodeValue};
-use tuber::graphics::{scene_renderer::SceneRenderer, Sprite, Line};
+use tuber::graphics::{scene_renderer::SceneRenderer, Text};
+
+use bmfont_parser::{BMFont, Format};
+use nalgebra_glm;
 
 fn main() -> Result<(), String> {
     // Setup SDL
@@ -67,37 +70,22 @@ fn main() -> Result<(), String> {
         &[vertex_shader, fragment_shader]
     )?;
 
+    let transform = nalgebra_glm::ortho(0.0, 800.0, 600.0, 0.0, 0.0, 100.0);
     shader_program.use_program();
-    shader_program.set_uniform_mat4("transform", nalgebra_glm::identity());
-
-    let mut texture_loader = GLTextureLoader{};
-    let texture = texture_loader.load("64x64")
-        .expect("Couldn't load texture");
-    let texture2 = texture_loader.load("64x64b")
-        .expect("Couldn't load texture");
-
+    shader_program.set_uniform_mat4("transform", transform);
     let texture_store = Rc::new(RefCell::new(GLTextureStore::new()));
-    texture_store.borrow_mut().store("64x64".into(), texture);
-    texture_store.borrow_mut().store("64x64b".into(), texture2);
-    
-    let mut scene = SceneGraph::new();
-    let sprite = SceneNode::new("first_sprite", NodeValue::SpriteNode(
-            Sprite::new(0.25, 0.25, "64x64".into())));
-    scene.root_mut().add_child(sprite);
-
-    let sprite2 = SceneNode::new("second_sprite", NodeValue::SpriteNode(
-            Sprite::new(0.5, 0.5, "64x64b".into())));
-    scene.root_mut().add_child(sprite2);
-
-    let sprite3 = SceneNode::new("third_sprite", NodeValue::SpriteNode(
-            Sprite::new(0.75, 0.75, "64x64".into())));
-    scene.root_mut().add_child(sprite3);
-
-    let line = SceneNode::new("some_line", NodeValue::LineNode(
-            Line::new((0.0, -1.0, 0.0), (1.0, 1.0, 0.0), (1.0, 1.0, 1.0, 1.0))));
-    scene.root_mut().add_child(line);
 
     let font_store = Rc::new(RefCell::new(FontStore::new()));
+    use tuber::resources::ResourceLoader;
+    let mut font_loader = BitmapFontLoader::new();
+    font_store.borrow_mut().store("default_font2".into(), font_loader.load("default_font2")?);
+
+    
+    let mut scene = SceneGraph::new();
+    let text = SceneNode::new("first_text", NodeValue::TextNode(
+            Text::new("CAELI 音楽".into(), "default_font2".into())));
+    scene.root_mut().add_child(text);
+
     let mut scene_renderer = GLSceneRenderer::new(texture_store.clone(), font_store.clone());
 
     opengl::set_viewport(0, 0, 800, 600);
@@ -148,6 +136,78 @@ impl tuber::resources::ResourceStore<Font> for FontStore {
     }
 }
 
+struct BitmapFontLoader {
+    texture_loader: GLTextureLoader
+}
+
+impl BitmapFontLoader {
+    pub fn new() -> BitmapFontLoader {
+        BitmapFontLoader {
+            texture_loader: GLTextureLoader::new()
+        }
+    }
+
+    fn load_font(&mut self, font_file_path: &str)
+        -> Result<Font, String> {
+        let bmfont = match BMFont::from_path(&Format::BMFont, font_file_path) {
+            Ok(bmfont) => bmfont,
+            Err(_) => panic!("Error loading font")
+        };
+
+        let page = bmfont.pages.get(0).unwrap();
+        let common_details = bmfont.common_details;
+
+
+        let (horizontal_scale, vertical_scale) = if let Some(details) = common_details {
+            (details.scale_w as f32, details.scale_h as f32)
+        } else {
+            return Err("Font scale not found".into());
+        };
+
+        let texture = self.texture_loader.load_texture(page.image_path.to_str().unwrap())?;
+        let mut font = Font::new(texture, horizontal_scale, vertical_scale);
+
+        for (char_id, character) in bmfont.chars {
+            let character_metadata = FontCharacter::new(
+                character.x as f32,
+                character.y as f32,
+                character.width as f32,
+                character.height as f32,
+                character.xoffset as f32,
+                character.yoffset as f32,
+                character.xadvance as f32
+            );
+
+            font.add_character(std::char::from_u32(char_id).unwrap(), character_metadata);
+        }
+
+        Ok(font)
+    }
+}
+
+impl tuber::resources::ResourceLoader<Font> for BitmapFontLoader {
+    fn load(&mut self, resource_file_path: &str) -> Result<Font, String> {
+        use serde_json::Value;
+        use std::{fs::File, io::BufReader, io::Read};
+
+        let mut file_path = String::from("data/");
+        file_path += &(resource_file_path.to_owned() + ".jbb");
+        let file = File::open(&file_path)
+            .expect("Resource file not found");
+        let mut buf_reader = BufReader::new(file);
+        let mut contents = String::new();
+        buf_reader.read_to_string(&mut contents)
+            .expect("Can't read resource file");
+
+        let v: Value = serde_json::from_str(&contents)
+            .expect("Can't parse resource file");
+
+        let mut font_file_path = String::from("data/");
+        font_file_path += v["font_file"].as_str().unwrap();
+        self.load_font(&font_file_path)
+    }
+}
+
 pub struct GLTextureStore {
     textures: std::collections::HashMap<String, opengl::Texture>
 }
@@ -174,12 +234,15 @@ impl tuber::resources::ResourceStore<opengl::Texture> for GLTextureStore {
     fn get_mut(&mut self, resource_file_path: &str) -> Option<&mut opengl::Texture> {
         self.textures.get_mut(resource_file_path)
     }
-
 }
 
 struct GLTextureLoader;
 impl GLTextureLoader {
-    fn load_texture(&mut self, texture_file_path: String) 
+    pub fn new() -> GLTextureLoader {
+        GLTextureLoader
+    }
+
+    pub fn load_texture(&mut self, texture_file_path: &str)
         -> Result<opengl::Texture, String> {
         use sdl2::image::LoadSurface;
         use sdl2::surface::Surface;
@@ -248,7 +311,7 @@ impl tuber::resources::ResourceLoader<opengl::Texture> for GLTextureLoader {
 
         let mut image_file_path = String::from("data/");
         image_file_path += v["image_file"].as_str().unwrap();
-        self.load_texture(image_file_path)
+        self.load_texture(&image_file_path)
     }
 }
 
