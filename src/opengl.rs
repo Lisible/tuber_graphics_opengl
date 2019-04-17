@@ -53,11 +53,9 @@ pub fn set_viewport(x: gl::types::GLint, y: gl::types::GLint,
     unsafe { gl::Viewport(x, y, width, height); }
 }
 
-type Color = (f32, f32, f32, f32);
-
 /// Sets the clear values for the color buffers
-pub fn set_clear_color(color: Color) {
-    unsafe { gl::ClearColor(color.0, color.1, color.2, color.3); }
+pub fn set_clear_color(red: f32, green: f32, blue: f32) {
+    unsafe { gl::ClearColor(red, green, blue, 1.0); }
 }
 /// Clear the buffers
 pub fn clear(mask: gl::types::GLenum) {

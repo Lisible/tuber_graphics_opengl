@@ -87,9 +87,9 @@ fn main() -> Result<(), String> {
     scene.root_mut().add_child(text);
 
     let mut scene_renderer = GLSceneRenderer::new(texture_store.clone(), font_store.clone());
+    scene_renderer.set_clear_color((1.0, 0.0, 0.0));
+    scene_renderer.set_viewport(0, 0, 800, 600);
 
-    opengl::set_viewport(0, 0, 800, 600);
-    opengl::set_clear_color((0.3, 0.3, 0.5, 1.0));
     'main_loop: loop {
         for event in window.poll_event() {
             match event {
@@ -98,10 +98,8 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
-        
-        opengl::clear(gl::COLOR_BUFFER_BIT); 
-        scene_renderer.render_scene(&scene);
 
+        scene_renderer.render_scene(&scene);
         window.display();
     }
 

@@ -31,6 +31,7 @@ use tuber::scene::{SceneGraph, SceneNode, NodeValue};
 pub mod opengl;
 pub mod font;
 
+type RGBColor = (f32, f32, f32);
 type VertexIndex = gl::types::GLuint;
 
 pub struct GLSceneRenderer {
@@ -49,6 +50,15 @@ impl GLSceneRenderer {
             texture_store,
             font_store
         }
+    }
+
+    pub fn set_clear_color(&mut self, color: RGBColor) {
+        opengl::set_clear_color(color.0, color.1, color.2);
+    }
+
+    pub fn set_viewport(&mut self, x: i32, y: i32,
+                        width: i32, height: i32) {
+        opengl::set_viewport(x, y, width, height);
     }
 
     /// Renders a scene node
@@ -98,7 +108,7 @@ impl GLSceneRenderer {
 
     /// Renders the batches of meshes
     fn render_batches(&mut self) {
-        println!("Batches to be rendered: {}", self.pending_batches.len());
+        opengl::clear(gl::COLOR_BUFFER_BIT);
         for batch in self.pending_batches.iter_mut() {
             let attributes = batch.mesh_attributes();
 

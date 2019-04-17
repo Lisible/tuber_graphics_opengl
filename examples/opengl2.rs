@@ -115,7 +115,7 @@ fn main() -> Result<(), String> {
 
 
     opengl::set_viewport(0, 0, 800, 600);
-    opengl::set_clear_color((0.3, 0.3, 0.5, 1.0));
+    opengl::set_clear_color(0.3, 0.3, 0.5);
     'main_loop: loop {
         for event in window.poll_event() {
             match event {
