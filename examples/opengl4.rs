@@ -47,8 +47,8 @@ fn main() -> Result<(), String> {
     let mut window = SDLWindow::new(&sdl_video_subsystem, 
                                     sdl_event_pump.clone());
     // Load gl functions
-    gl::load_with(|s| sdl_video_subsystem.gl_get_proc_address(s)
-                  as *const std::os::raw::c_void);
+    opengl::load_symbols(|s| sdl_video_subsystem.gl_get_proc_address(s)
+        as *const std::os::raw::c_void);
 
     
     // Shader loading
@@ -59,11 +59,12 @@ fn main() -> Result<(), String> {
         Path::new("data/textured.frag"),
         gl::FRAGMENT_SHADER)?;
 
-    let shader_program = opengl::ShaderProgram::from_shaders(
+    let mut shader_program = opengl::ShaderProgram::from_shaders(
         &[vertex_shader, fragment_shader]
     )?;
 
     shader_program.use_program();
+    shader_program.set_uniform_mat4("transform", nalgebra_glm::identity());
 
     let vertices = [
         Vertex::with_values((-0.5, -0.5, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0)),

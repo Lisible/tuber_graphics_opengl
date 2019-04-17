@@ -24,7 +24,14 @@
 
 //! This modules contains wrappers and utilities for OpenGL 
 
-use std::ffi::CString;
+use std::ffi::{CString, c_void};
+
+/// Loads OpenGL symbols through a load function
+pub fn load_symbols<F>(load_function: F)
+where
+    F: FnMut(&'static str) -> *const c_void {
+    gl::load_with(load_function);
+}
 
 /// Wrapper function for glDrawArrays
 pub fn draw_arrays(mode: gl::types::GLenum,
