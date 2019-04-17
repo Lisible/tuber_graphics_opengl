@@ -29,20 +29,25 @@ use tuber::resources::ResourceStore;
 use tuber::scene::{SceneGraph, SceneNode, NodeValue};
 
 pub mod opengl;
+pub mod font;
+
 type VertexIndex = gl::types::GLuint;
 
 pub struct GLSceneRenderer {
     pending_meshes: Vec<Mesh>,
     pending_batches: Vec<RenderBatch>,
-    texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>
+    texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>,
+    font_store: Rc<RefCell<ResourceStore<font::Font>>>
 }
 impl GLSceneRenderer {
     /// Creates a new OpenGL scene renderer
-    pub fn new(texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>) -> GLSceneRenderer {
+    pub fn new(texture_store: Rc<RefCell<ResourceStore<opengl::Texture>>>,
+               font_store: Rc<RefCell<ResourceStore<font::Font>>>) -> GLSceneRenderer {
         GLSceneRenderer {
             pending_meshes: vec!(),
             pending_batches: vec!(),
-            texture_store
+            texture_store,
+            font_store
         }
     }
 
@@ -52,6 +57,7 @@ impl GLSceneRenderer {
             NodeValue::RectangleNode(rectangle) => self.render_rectangle_node(rectangle),
             NodeValue::LineNode(line) => self.render_line_node(line),
             NodeValue::SpriteNode(sprite) => self.render_sprite_node(sprite),
+            NodeValue::TextNode(text) => self.render_text_node(text),
             _ => println!("Node value of {} isn't renderable", scene_node.identifier())
         }
     }
@@ -72,9 +78,14 @@ impl GLSceneRenderer {
     fn batch_meshes(&mut self) {
         for mesh in self.pending_meshes.iter() {
             if (self.pending_batches.len() == 0) || 
-                (self.pending_batches.last().unwrap().mesh_attributes() != mesh.attributes()) {
+                (self.pending_batches.last().unwrap().mesh_attributes() != mesh.attributes()) ||
+                (!self.pending_batches.last().unwrap().can_mesh_fit(&mesh)){
                 
                 let mut render_batch = RenderBatch::new(mesh.attributes().clone());
+                if !render_batch.can_mesh_fit(&mesh) {
+                    panic!("Mesh too big for a batch");
+                }
+
                 render_batch.add_mesh(mesh.clone());
                 self.pending_batches.push(render_batch);
             } else {
@@ -91,7 +102,13 @@ impl GLSceneRenderer {
         for batch in self.pending_batches.iter_mut() {
             let attributes = batch.mesh_attributes();
 
-            if let Some(texture_identifier) = attributes.texture_identifier() {
+            if let Some(font_identifier) = attributes.font_identifier() {
+                let font_store = self.font_store.borrow();
+                let font = font_store.get(font_identifier).unwrap();
+                opengl::enable_font_blending();
+                font.bind_texture();
+            }
+            else if let Some(texture_identifier) = attributes.texture_identifier() {
                 let texture_store = self.texture_store.borrow();
                 let texture = texture_store.get(texture_identifier).unwrap();
                 texture.bind();
@@ -102,18 +119,25 @@ impl GLSceneRenderer {
 
         self.pending_batches.clear();
     }
-    
-    /// Renders a rectangle node
+
     fn render_rectangle_node(&mut self, rectangle: &tuber::graphics::Rectangle) {
         let mut mesh = Mesh::new(MeshAttributes::defaults());
 
         let c = rectangle.color();
         let indices = [0, 1, 2, 2, 0, 3];
         let vertices = [
-            Vertex::with_values((0.0, 0.0, 0.0), (c.0, c.1, c.2), (0.0, 0.0)),
-            Vertex::with_values((0.0, rectangle.height(), 0.0), (c.0, c.1, c.2), (0.0, 1.0)),
-            Vertex::with_values((rectangle.width(), rectangle.height(), 0.0), (c.0, c.1, c.2), (1.0, 1.0)),
-            Vertex::with_values((rectangle.width(), 0.0, 0.0), (c.0, c.1, c.2), (1.0, 0.0))
+            Vertex::with_values((0.0, 0.0, 0.0),
+                                (c.0, c.1, c.2),
+                                (0.0, 0.0)),
+            Vertex::with_values((0.0, rectangle.height(), 0.0),
+                                (c.0, c.1, c.2),
+                                (0.0, 1.0)),
+            Vertex::with_values((rectangle.width(), rectangle.height(), 0.0),
+                                (c.0, c.1, c.2),
+                                (1.0, 1.0)),
+            Vertex::with_values((rectangle.width(), 0.0, 0.0),
+                                (c.0, c.1, c.2),
+                                (1.0, 0.0))
         ];
 
         mesh.add_vertices(&vertices);
@@ -122,7 +146,6 @@ impl GLSceneRenderer {
         self.pending_meshes.push(mesh);
     }
 
-    /// Renders a sprite node
     fn render_sprite_node(&mut self, sprite: &tuber::graphics::Sprite) {
         let mesh_attributes = MeshAttributesBuilder::new()
             .texture(sprite.texture_identifier())
@@ -131,16 +154,73 @@ impl GLSceneRenderer {
        
         let indices = [0, 1, 2, 2, 0, 3];
         let vertices = [
-            Vertex::with_values((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.0, 0.0)),
-            Vertex::with_values((0.0, sprite.height(), 0.0), (1.0, 1.0, 1.0), (0.0, 1.0)),
-            Vertex::with_values((sprite.width(), sprite.height(), 0.0), (1.0, 1.0, 1.0), (1.0, 1.0)),
-            Vertex::with_values((sprite.width(), 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0))
+            Vertex::with_values((0.0, 0.0, 0.0),
+                                (1.0, 1.0, 1.0),
+                                (0.0, 0.0)),
+            Vertex::with_values((0.0, sprite.height(), 0.0),
+                                (1.0, 1.0, 1.0),
+                                (0.0, 1.0)),
+            Vertex::with_values((sprite.width(), sprite.height(), 0.0),
+                                (1.0, 1.0, 1.0),
+                                (1.0, 1.0)),
+            Vertex::with_values((sprite.width(), 0.0, 0.0),
+                                (1.0, 1.0, 1.0),
+                                (1.0, 0.0))
         ];
 
         mesh.add_vertices(&vertices);
         mesh.add_indices(&indices);
 
         self.pending_meshes.push(mesh);
+    }
+
+    fn render_text_node(&mut self, text: &tuber::graphics::Text) {
+        let font_store = self.font_store.borrow();
+        let font = font_store.get(text.font_identifier()).unwrap();
+
+        let mut cursor_offset = 0.0;
+        for c in text.text().chars() {
+            let character_metadata = if let Some(character) = font.characters().get(&c) {
+                character
+            } else {
+                continue;
+            };
+
+            let mesh_attributes = MeshAttributesBuilder::new()
+                .font(text.font_identifier())
+                .build();
+
+            let tw = font.horizontal_scale();
+            let th = font.vertical_scale();
+            let x = character_metadata.x_coordinate() / tw;
+            let y = -character_metadata.y_coordinate() / th;
+            let y_off = character_metadata.y_offset();
+            let w = character_metadata.width();
+            let h = character_metadata.height();
+
+            let mut mesh = Mesh::new(mesh_attributes);
+            let indices = [0, 1, 2, 2, 0, 3];
+            let vertices = [
+                Vertex::with_values((cursor_offset, y_off, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x, y)),
+                Vertex::with_values((cursor_offset, y_off + h, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x, y - h / th)),
+                Vertex::with_values((cursor_offset + w, y_off + h, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x + w / tw, y - h / th)),
+                Vertex::with_values((cursor_offset + w, y_off, 0.0),
+                                    (1.0, 1.0, 1.0),
+                                    (x + w / tw, y))
+            ];
+
+            cursor_offset += w;
+
+            mesh.add_vertices(&vertices);
+            mesh.add_indices(&indices);
+            self.pending_meshes.push(mesh);
+        }
     }
 
     fn render_line_node(&mut self, line: &tuber::graphics::Line) {
@@ -202,6 +282,7 @@ impl SceneRenderer for GLSceneRenderer {
 /// ```
 pub struct MeshAttributesBuilder {
     texture_identifier: Option<String>,
+    font_identifier: Option<String>,
     draw_mode: gl::types::GLenum
 }
 
@@ -209,6 +290,7 @@ impl MeshAttributesBuilder {
     pub fn new() -> MeshAttributesBuilder {
         MeshAttributesBuilder { 
             texture_identifier: None,
+            font_identifier: None,
             draw_mode: gl::TRIANGLES
         }
     }
@@ -216,6 +298,12 @@ impl MeshAttributesBuilder {
     pub fn texture(mut self, texture_identifier: &str) 
         -> MeshAttributesBuilder {
         self.texture_identifier = Some(texture_identifier.into());
+        self
+    }
+
+    pub fn font(mut self, font_identifier: &str)
+        -> MeshAttributesBuilder {
+        self.font_identifier = Some(font_identifier.into());
         self
     }
 
@@ -228,6 +316,7 @@ impl MeshAttributesBuilder {
     pub fn build(self) -> MeshAttributes {
         MeshAttributes {
             texture_identifier: self.texture_identifier,
+            font_identifier: self.font_identifier,
             draw_mode: self.draw_mode
         }
     }
@@ -236,6 +325,7 @@ impl MeshAttributesBuilder {
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct MeshAttributes {
     texture_identifier: Option<String>,
+    font_identifier: Option<String>,
     draw_mode: gl::types::GLenum
 }
 
@@ -243,12 +333,17 @@ impl MeshAttributes {
     pub fn defaults() -> MeshAttributes {
         MeshAttributes {
             texture_identifier: None,
+            font_identifier: None,
             draw_mode: gl::TRIANGLES
         }
     }
 
     pub fn texture_identifier(&self) -> &Option<String> {
         &self.texture_identifier
+    }
+
+    pub fn font_identifier(&self) -> &Option<String> {
+        &self.font_identifier
     }
 
     pub fn draw_mode(&self) -> gl::types::GLenum {
@@ -268,7 +363,7 @@ struct RenderBatch {
 }
 
 impl RenderBatch {
-    const MAX_BATCH_SIZE: usize = 1000;
+    const MAX_BATCH_SIZE: usize = 4000000;
 
     pub fn new(mesh_attributes: MeshAttributes) -> RenderBatch {
         let vao = opengl::VertexArrayObject::new();
@@ -308,14 +403,24 @@ impl RenderBatch {
         self.mesh_attributes.clone()
     }
 
+    pub fn can_mesh_fit(&self, mesh: &Mesh) -> bool {
+        let mesh_vertex_count = mesh.vertices().len();
+        let vertex_size = std::mem::size_of::<Vertex>();
+
+        self.vertex_count * vertex_size + mesh_vertex_count * vertex_size
+            < RenderBatch::MAX_BATCH_SIZE
+    }
+
     pub fn add_mesh(&mut self, mesh: Mesh) {
         let mesh_vertex_count = mesh.vertices().len();
         let mesh_index_count = mesh.indices().len();
+        let vertex_size = std::mem::size_of::<Vertex>();
+        let index_size = std::mem::size_of::<gl::types::GLuint>();
 
         self.vbo.bind();
         let mut vertex_buffer_pointer = self.vbo
-            .map_buffer_range(self.vertex_count * std::mem::size_of::<Vertex>(), 
-                              mesh_vertex_count * std::mem::size_of::<Vertex>(), 
+            .map_buffer_range(self.vertex_count * vertex_size,
+                              mesh_vertex_count * vertex_size,
                               gl::MAP_WRITE_BIT) as *mut Vertex;
         unsafe {
             for vertex in mesh.vertices().iter() {
@@ -329,8 +434,8 @@ impl RenderBatch {
 
         self.ebo.bind();
         let mut index_buffer_pointer = self.ebo
-            .map_buffer_range(self.index_count * std::mem::size_of::<gl::types::GLuint>(),
-                              mesh_index_count * std::mem::size_of::<gl::types::GLuint>(),
+            .map_buffer_range(self.index_count * index_size,
+                              mesh_index_count * index_size,
                               gl::MAP_WRITE_BIT) as *mut gl::types::GLuint;
 
         unsafe {
@@ -343,8 +448,6 @@ impl RenderBatch {
                 };
 
                 index_buffer_pointer.write(*index + index_offset as u32);
-                dbg!(*index + index_offset as u32);
-
                 if *index + index_offset as u32 > self.last_index as u32 {
                     self.last_index = (*index + index_offset as u32) as usize;
                 }
@@ -370,7 +473,6 @@ impl RenderBatch {
     }
 }
 
-/// Represents a mesh
 #[derive(Clone)]
 pub struct Mesh {
     vertices: Vec<Vertex>,

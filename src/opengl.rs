@@ -64,6 +64,13 @@ pub fn clear(mask: gl::types::GLenum) {
     unsafe { gl::Clear(mask); }
 }
 
+pub fn enable_font_blending() {
+    unsafe {
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+    }
+}
+
 /// OpenGL buffer object wrapper
 pub struct BufferObject {
     identifier: gl::types::GLuint,
@@ -264,6 +271,14 @@ impl ShaderProgram {
     /// Uses the shader program
     pub fn use_program(&self) {
         unsafe { gl::UseProgram(self.identifier); }
+    }
+
+    pub fn set_uniform_mat4(&mut self, uniform: &str, uniform_value: nalgebra_glm::Mat4) {
+        unsafe {
+            let uniform_string = CString::new(uniform).unwrap();
+            let location = gl::GetUniformLocation(self.identifier, uniform_string.as_ptr());
+            gl::UniformMatrix4fv(location, 1, gl::FALSE, (&nalgebra_glm::value_ptr(&uniform_value)).as_ptr());
+        }
     }
 }
 
